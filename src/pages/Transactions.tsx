@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus } from "lucide-react";
+import { Plus, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -266,22 +266,34 @@ const Transactions = () => {
             <TableBody>
               {transactions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
-                    No transactions found
+                  <TableCell colSpan={6} className="text-center py-12">
+                    <div className="flex flex-col items-center justify-center text-muted-foreground">
+                      <DollarSign className="h-16 w-16 mb-4 opacity-30" />
+                      <p className="text-lg font-medium mb-1">No transactions yet</p>
+                      <p className="text-sm">Record your first payment to get started</p>
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : (
                 transactions.map((transaction) => (
-                  <TableRow key={transaction.id}>
-                    <TableCell>
-                      {new Date(transaction.transaction_date).toLocaleDateString()}
+                  <TableRow key={transaction.id} className="hover:bg-muted/50 transition-colors">
+                    <TableCell className="text-sm">
+                      {new Date(transaction.transaction_date).toLocaleDateString("en-US", { 
+                        year: "numeric", 
+                        month: "short", 
+                        day: "numeric" 
+                      })}
                     </TableCell>
                     <TableCell className="font-medium">{transaction.students?.full_name}</TableCell>
-                    <TableCell className="font-semibold">₹{transaction.amount.toLocaleString()}</TableCell>
-                    <TableCell className="capitalize">
-                      {transaction.payment_method.replace("_", " ")}
+                    <TableCell className="font-semibold text-emerald-600">
+                      ₹{transaction.amount.toLocaleString()}
                     </TableCell>
-                    <TableCell className="capitalize">
+                    <TableCell>
+                      <Badge variant="outline" className="font-normal capitalize">
+                        {transaction.payment_method.replace("_", " ")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="capitalize text-sm">
                       {transaction.payment_type.replace("_", " ")}
                     </TableCell>
                     <TableCell>

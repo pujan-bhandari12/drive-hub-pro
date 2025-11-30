@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, ClipboardCheck, DollarSign, TrendingUp } from "lucide-react";
+import { Users, Calendar, DollarSign, TrendingUp } from "lucide-react";
 
 const Dashboard = () => {
   const [stats, setStats] = useState({
@@ -67,25 +67,25 @@ const Dashboard = () => {
       color: "text-primary",
     },
     {
-      title: "Today's Attendance",
+      title: "Today's Lessons",
       value: stats.todayAttendance,
-      icon: ClipboardCheck,
-      description: "Lessons scheduled",
-      color: "text-success",
+      icon: Calendar,
+      description: "Scheduled today",
+      color: "text-blue-600",
     },
     {
       title: "Monthly Revenue",
       value: `₹${stats.monthlyRevenue.toLocaleString()}`,
       icon: DollarSign,
       description: "Current month",
-      color: "text-info",
+      color: "text-emerald-600",
     },
     {
       title: "Growth",
       value: "+12%",
       icon: TrendingUp,
       description: "vs last month",
-      color: "text-warning",
+      color: "text-orange-600",
     },
   ];
 

@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { StudentPaymentDialog } from "@/components/StudentPaymentDialog";
@@ -46,13 +46,11 @@ interface AttendanceRecord {
   notes: string | null;
   student_id: string;
   students: { full_name: string } | null;
-  instructors: { full_name: string } | null;
 }
 
 const Attendance = () => {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [students, setStudents] = useState<any[]>([]);
-  const [instructors, setInstructors] = useState<any[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -62,7 +60,6 @@ const Attendance = () => {
 
   const [formData, setFormData] = useState({
     student_id: "",
-    instructor_id: "",
     lesson_date: new Date().toISOString().split("T")[0],
     lesson_time: "09:00",
     lesson_type: "",
@@ -74,7 +71,6 @@ const Attendance = () => {
   useEffect(() => {
     fetchAttendance();
     fetchStudents();
-    fetchInstructors();
   }, []);
 
   const fetchAttendance = async () => {
@@ -82,8 +78,7 @@ const Attendance = () => {
       .from("attendance")
       .select(`
         *,
-        students(full_name),
-        instructors(full_name)
+        students(full_name)
       `)
       .order("lesson_date", { ascending: false })
       .order("lesson_time", { ascending: false });
@@ -106,15 +101,6 @@ const Attendance = () => {
       .eq("status", "active")
       .order("full_name");
     setStudents(data || []);
-  };
-
-  const fetchInstructors = async () => {
-    const { data } = await supabase
-      .from("instructors")
-      .select("id, full_name")
-      .eq("status", "active")
-      .order("full_name");
-    setInstructors(data || []);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -142,7 +128,6 @@ const Attendance = () => {
       setIsDialogOpen(false);
       setFormData({
         student_id: "",
-        instructor_id: "",
         lesson_date: new Date().toISOString().split("T")[0],
         lesson_time: "09:00",
         lesson_type: "",
@@ -206,44 +191,24 @@ const Attendance = () => {
                 <DialogDescription>Create a new lesson schedule</DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="student_id">Student *</Label>
-                    <Select
-                      value={formData.student_id}
-                      onValueChange={(value) => setFormData({ ...formData, student_id: value })}
-                      required
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select student" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {students.map((student) => (
-                          <SelectItem key={student.id} value={student.id}>
-                            {student.full_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="instructor_id">Instructor</Label>
-                    <Select
-                      value={formData.instructor_id}
-                      onValueChange={(value) => setFormData({ ...formData, instructor_id: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select instructor" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {instructors.map((instructor) => (
-                          <SelectItem key={instructor.id} value={instructor.id}>
-                            {instructor.full_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="student_id">Student *</Label>
+                  <Select
+                    value={formData.student_id}
+                    onValueChange={(value) => setFormData({ ...formData, student_id: value })}
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select student" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {students.map((student) => (
+                        <SelectItem key={student.id} value={student.id}>
+                          {student.full_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
@@ -342,7 +307,6 @@ const Attendance = () => {
               <TableRow>
                 <TableHead>Date & Time</TableHead>
                 <TableHead>Student</TableHead>
-                <TableHead>Instructor</TableHead>
                 <TableHead>Lesson Type</TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead>Status</TableHead>
@@ -352,17 +316,26 @@ const Attendance = () => {
             <TableBody>
               {attendance.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground">
-                    No attendance records found
+                  <TableCell colSpan={6} className="text-center py-8">
+                    <div className="text-muted-foreground">
+                      <Calendar className="mx-auto h-12 w-12 mb-2 opacity-50" />
+                      <p className="text-sm">No attendance records yet</p>
+                      <p className="text-xs mt-1">Schedule your first lesson to get started</p>
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : (
                 attendance.map((record) => (
-                  <TableRow key={record.id}>
+                  <TableRow key={record.id} className="hover:bg-muted/50 transition-colors">
                     <TableCell>
                       <div className="text-sm">
                         <div className="font-medium">
-                          {new Date(record.lesson_date).toLocaleDateString()}
+                          {new Date(record.lesson_date).toLocaleDateString("en-US", { 
+                            weekday: "short", 
+                            year: "numeric", 
+                            month: "short", 
+                            day: "numeric" 
+                          })}
                         </div>
                         <div className="text-muted-foreground">{record.lesson_time}</div>
                       </div>
@@ -373,9 +346,12 @@ const Attendance = () => {
                     >
                       {record.students?.full_name}
                     </TableCell>
-                    <TableCell>{record.instructors?.full_name || "Not assigned"}</TableCell>
-                    <TableCell className="capitalize">{record.lesson_type.replace("-", " ")}</TableCell>
-                    <TableCell>{record.duration_hours}h</TableCell>
+                    <TableCell className="capitalize">
+                      <Badge variant="outline" className="font-normal">
+                        {record.lesson_type.replace("-", " ")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-medium">{record.duration_hours}h</TableCell>
                     <TableCell>
                       <Badge
                         variant={
