@@ -21,9 +21,20 @@ import {
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
+import { StudentPaymentDialog } from "@/components/StudentPaymentDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface AttendanceRecord {
   id: string;
@@ -33,6 +44,7 @@ interface AttendanceRecord {
   duration_hours: number;
   status: string;
   notes: string | null;
+  student_id: string;
   students: { full_name: string } | null;
   instructors: { full_name: string } | null;
 }
@@ -44,6 +56,9 @@ const Attendance = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const [selectedStudent, setSelectedStudent] = useState<{ id: string; name: string } | null>(null);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [deleteRecord, setDeleteRecord] = useState<AttendanceRecord | null>(null);
 
   const [formData, setFormData] = useState({
     student_id: "",
@@ -136,6 +151,37 @@ const Attendance = () => {
         notes: "",
       });
       fetchAttendance();
+    }
+  };
+
+  const handleDeleteRecord = async () => {
+    if (!deleteRecord) return;
+
+    const { error } = await supabase
+      .from("attendance")
+      .delete()
+      .eq("id", deleteRecord.id);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Success",
+        description: "Attendance record deleted successfully",
+      });
+      fetchAttendance();
+    }
+    setDeleteRecord(null);
+  };
+
+  const handleStudentClick = (record: AttendanceRecord) => {
+    if (record.students) {
+      setSelectedStudent({ id: record.student_id, name: record.students.full_name });
+      setPaymentDialogOpen(true);
     }
   };
 
@@ -300,12 +346,13 @@ const Attendance = () => {
                 <TableHead>Lesson Type</TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="w-[80px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {attendance.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground">
                     No attendance records found
                   </TableCell>
                 </TableRow>
@@ -320,7 +367,12 @@ const Attendance = () => {
                         <div className="text-muted-foreground">{record.lesson_time}</div>
                       </div>
                     </TableCell>
-                    <TableCell className="font-medium">{record.students?.full_name}</TableCell>
+                    <TableCell 
+                      className="font-medium cursor-pointer hover:text-primary transition-colors"
+                      onClick={() => handleStudentClick(record)}
+                    >
+                      {record.students?.full_name}
+                    </TableCell>
                     <TableCell>{record.instructors?.full_name || "Not assigned"}</TableCell>
                     <TableCell className="capitalize">{record.lesson_type.replace("-", " ")}</TableCell>
                     <TableCell>{record.duration_hours}h</TableCell>
@@ -337,12 +389,49 @@ const Attendance = () => {
                         {record.status}
                       </Badge>
                     </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteRecord(record);
+                        }}
+                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
             </TableBody>
           </Table>
         </div>
+
+        <StudentPaymentDialog
+          open={paymentDialogOpen}
+          onOpenChange={setPaymentDialogOpen}
+          studentId={selectedStudent?.id || null}
+          studentName={selectedStudent?.name || ""}
+        />
+
+        <AlertDialog open={!!deleteRecord} onOpenChange={() => setDeleteRecord(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Attendance Record</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this attendance record for {deleteRecord?.students?.full_name}? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteRecord} className="bg-destructive hover:bg-destructive/90">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );

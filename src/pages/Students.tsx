@@ -21,8 +21,19 @@ import {
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { StudentPaymentDialog } from "@/components/StudentPaymentDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Student {
   id: string;
@@ -40,6 +51,9 @@ const Students = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const [selectedStudent, setSelectedStudent] = useState<{ id: string; name: string } | null>(null);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [deleteStudent, setDeleteStudent] = useState<Student | null>(null);
 
   const [formData, setFormData] = useState({
     full_name: "",
@@ -103,6 +117,35 @@ const Students = () => {
       });
       fetchStudents();
     }
+  };
+
+  const handleDeleteStudent = async () => {
+    if (!deleteStudent) return;
+
+    const { error } = await supabase
+      .from("students")
+      .delete()
+      .eq("id", deleteStudent.id);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Success",
+        description: "Student deleted successfully",
+      });
+      fetchStudents();
+    }
+    setDeleteStudent(null);
+  };
+
+  const handleStudentClick = (student: Student) => {
+    setSelectedStudent({ id: student.id, name: student.full_name });
+    setPaymentDialogOpen(true);
   };
 
   const filteredStudents = students.filter((student) =>
@@ -250,19 +293,25 @@ const Students = () => {
                 <TableHead>License Type</TableHead>
                 <TableHead>Enrollment Date</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="w-[80px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredStudents.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground">
                     No students found
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredStudents.map((student) => (
                   <TableRow key={student.id}>
-                    <TableCell className="font-medium">{student.full_name}</TableCell>
+                    <TableCell 
+                      className="font-medium cursor-pointer hover:text-primary transition-colors"
+                      onClick={() => handleStudentClick(student)}
+                    >
+                      {student.full_name}
+                    </TableCell>
                     <TableCell>
                       <div className="text-sm">
                         <div>{student.phone}</div>
@@ -284,12 +333,49 @@ const Students = () => {
                         {student.status}
                       </Badge>
                     </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteStudent(student);
+                        }}
+                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
             </TableBody>
           </Table>
         </div>
+
+        <StudentPaymentDialog
+          open={paymentDialogOpen}
+          onOpenChange={setPaymentDialogOpen}
+          studentId={selectedStudent?.id || null}
+          studentName={selectedStudent?.name || ""}
+        />
+
+        <AlertDialog open={!!deleteStudent} onOpenChange={() => setDeleteStudent(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Student</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete {deleteStudent?.full_name}? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteStudent} className="bg-destructive hover:bg-destructive/90">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );
