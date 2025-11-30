@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Trash2 } from "lucide-react";
+import { Plus, Search, Trash2, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { StudentPaymentDialog } from "@/components/StudentPaymentDialog";
 import {
@@ -299,13 +299,23 @@ const Students = () => {
             <TableBody>
               {filteredStudents.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
-                    No students found
+                  <TableCell colSpan={6} className="text-center py-12">
+                    <div className="flex flex-col items-center justify-center text-muted-foreground">
+                      <Users className="h-16 w-16 mb-4 opacity-30" />
+                      <p className="text-lg font-medium mb-1">
+                        {searchTerm ? "No students found" : "No students yet"}
+                      </p>
+                      <p className="text-sm mb-4">
+                        {searchTerm 
+                          ? "Try adjusting your search terms" 
+                          : "Add your first student to get started"}
+                      </p>
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredStudents.map((student) => (
-                  <TableRow key={student.id}>
+                  <TableRow key={student.id} className="hover:bg-muted/50 transition-colors">
                     <TableCell 
                       className="font-medium cursor-pointer hover:text-primary transition-colors"
                       onClick={() => handleStudentClick(student)}
@@ -314,12 +324,22 @@ const Students = () => {
                     </TableCell>
                     <TableCell>
                       <div className="text-sm">
-                        <div>{student.phone}</div>
-                        {student.email && <div className="text-muted-foreground">{student.email}</div>}
+                        <div className="font-medium">{student.phone}</div>
+                        {student.email && <div className="text-muted-foreground text-xs">{student.email}</div>}
                       </div>
                     </TableCell>
-                    <TableCell className="capitalize">{student.license_type.replace("-", " ")}</TableCell>
-                    <TableCell>{new Date(student.enrollment_date).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="font-normal capitalize">
+                        {student.license_type.replace("-", " ")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {new Date(student.enrollment_date).toLocaleDateString("en-US", { 
+                        year: "numeric", 
+                        month: "short", 
+                        day: "numeric" 
+                      })}
+                    </TableCell>
                     <TableCell>
                       <Badge
                         variant={

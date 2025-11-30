@@ -18,7 +18,6 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { name: "Students", href: "/students", icon: Users },
     { name: "Attendance", href: "/attendance", icon: ClipboardList },
     { name: "Transactions", href: "/transactions", icon: DollarSign },
-    { name: "Instructors", href: "/instructors", icon: UserCog },
   ];
 
   return (

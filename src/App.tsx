@@ -9,7 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import Students from "./pages/Students";
 import Attendance from "./pages/Attendance";
 import Transactions from "./pages/Transactions";
-import Instructors from "./pages/Instructors";
+
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -102,14 +102,6 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Transactions />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/instructors"
-              element={
-                <ProtectedRoute>
-                  <Instructors />
                 </ProtectedRoute>
               }
             />
