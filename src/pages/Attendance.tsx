@@ -254,10 +254,8 @@ const Attendance = () => {
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="practical">Practical</SelectItem>
-                        <SelectItem value="theory">Theory</SelectItem>
-                        <SelectItem value="test-preparation">Test Preparation</SelectItem>
-                        <SelectItem value="road-test">Road Test</SelectItem>
+                        <SelectItem value="bike">Bike</SelectItem>
+                        <SelectItem value="car">Car</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

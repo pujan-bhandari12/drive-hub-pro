@@ -74,6 +74,53 @@ export type Database = {
           },
         ]
       }
+      enrollments: {
+        Row: {
+          created_at: string | null
+          end_date: string | null
+          id: string
+          license_type: string
+          payment_plan: number
+          start_date: string
+          status: string
+          student_id: string
+          total_amount: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          license_type: string
+          payment_plan: number
+          start_date?: string
+          status?: string
+          student_id: string
+          total_amount?: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          license_type?: string
+          payment_plan?: number
+          start_date?: string
+          status?: string
+          student_id?: string
+          total_amount?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enrollments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       instructors: {
         Row: {
           created_at: string | null
@@ -144,7 +191,6 @@ export type Database = {
           enrollment_date: string
           full_name: string
           id: string
-          license_type: string
           phone: string
           status: string
           updated_at: string | null
@@ -158,7 +204,6 @@ export type Database = {
           enrollment_date?: string
           full_name: string
           id?: string
-          license_type: string
           phone: string
           status?: string
           updated_at?: string | null
@@ -172,7 +217,6 @@ export type Database = {
           enrollment_date?: string
           full_name?: string
           id?: string
-          license_type?: string
           phone?: string
           status?: string
           updated_at?: string | null

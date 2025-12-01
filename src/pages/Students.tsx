@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Trash2, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { StudentPaymentDialog } from "@/components/StudentPaymentDialog";
+import { EnrollmentDialog } from "@/components/EnrollmentDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,19 +41,28 @@ interface Student {
   full_name: string;
   email: string | null;
   phone: string;
-  license_type: string;
   status: string;
   enrollment_date: string;
 }
 
+interface Enrollment {
+  id: string;
+  license_type: string;
+  payment_plan: number;
+  status: string;
+  total_amount: number;
+}
+
 const Students = () => {
   const [students, setStudents] = useState<Student[]>([]);
+  const [enrollments, setEnrollments] = useState<Record<string, Enrollment[]>>({});
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const [selectedStudent, setSelectedStudent] = useState<{ id: string; name: string } | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [enrollmentDialogOpen, setEnrollmentDialogOpen] = useState(false);
   const [deleteStudent, setDeleteStudent] = useState<Student | null>(null);
 
   const [formData, setFormData] = useState({
@@ -60,7 +70,6 @@ const Students = () => {
     email: "",
     phone: "",
     address: "",
-    license_type: "",
     date_of_birth: "",
     status: "active",
   });
@@ -70,20 +79,46 @@ const Students = () => {
   }, []);
 
   const fetchStudents = async () => {
-    const { data, error } = await supabase
+    const { data: studentsData, error: studentsError } = await supabase
       .from("students")
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (error) {
+    if (studentsError) {
       toast({
         title: "Error",
         description: "Failed to fetch students",
         variant: "destructive",
       });
-    } else {
-      setStudents(data || []);
+      return;
     }
+
+    setStudents(studentsData || []);
+
+    // Fetch enrollments for all students
+    const { data: enrollmentsData, error: enrollmentsError } = await supabase
+      .from("enrollments")
+      .select("*");
+
+    if (enrollmentsError) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch enrollments",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Group enrollments by student_id
+    const enrollmentsByStudent: Record<string, Enrollment[]> = {};
+    enrollmentsData?.forEach((enrollment) => {
+      if (!enrollmentsByStudent[enrollment.student_id]) {
+        enrollmentsByStudent[enrollment.student_id] = [];
+      }
+      enrollmentsByStudent[enrollment.student_id].push(enrollment);
+    });
+
+    setEnrollments(enrollmentsByStudent);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -111,7 +146,6 @@ const Students = () => {
         email: "",
         phone: "",
         address: "",
-        license_type: "",
         date_of_birth: "",
         status: "active",
       });
@@ -146,6 +180,11 @@ const Students = () => {
   const handleStudentClick = (student: Student) => {
     setSelectedStudent({ id: student.id, name: student.full_name });
     setPaymentDialogOpen(true);
+  };
+
+  const handleAddEnrollment = (student: Student) => {
+    setSelectedStudent({ id: student.id, name: student.full_name });
+    setEnrollmentDialogOpen(true);
   };
 
   const filteredStudents = students.filter((student) =>
@@ -223,41 +262,21 @@ const Students = () => {
                     onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="license_type">License Type *</Label>
-                    <Select
-                      value={formData.license_type}
-                      onValueChange={(value) => setFormData({ ...formData, license_type: value })}
-                      required
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="two-wheeler">Two Wheeler</SelectItem>
-                        <SelectItem value="four-wheeler">Four Wheeler</SelectItem>
-                        <SelectItem value="commercial">Commercial</SelectItem>
-                        <SelectItem value="heavy-vehicle">Heavy Vehicle</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="status">Status</Label>
-                    <Select
-                      value={formData.status}
-                      onValueChange={(value) => setFormData({ ...formData, status: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                        <SelectItem value="dropped">Dropped</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    value={formData.status}
+                    onValueChange={(value) => setFormData({ ...formData, status: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="dropped">Dropped</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
@@ -290,7 +309,8 @@ const Students = () => {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Contact</TableHead>
-                <TableHead>License Type</TableHead>
+                <TableHead>Bike Enrollment</TableHead>
+                <TableHead>Car Enrollment</TableHead>
                 <TableHead>Enrollment Date</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-[80px]">Actions</TableHead>
@@ -299,7 +319,7 @@ const Students = () => {
             <TableBody>
               {filteredStudents.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12">
+                  <TableCell colSpan={7} className="text-center py-12">
                     <div className="flex flex-col items-center justify-center text-muted-foreground">
                       <Users className="h-16 w-16 mb-4 opacity-30" />
                       <p className="text-lg font-medium mb-1">
@@ -314,60 +334,103 @@ const Students = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredStudents.map((student) => (
-                  <TableRow key={student.id} className="hover:bg-muted/50 transition-colors">
-                    <TableCell 
-                      className="font-medium cursor-pointer hover:text-primary transition-colors"
-                      onClick={() => handleStudentClick(student)}
-                    >
-                      {student.full_name}
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        <div className="font-medium">{student.phone}</div>
-                        {student.email && <div className="text-muted-foreground text-xs">{student.email}</div>}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="font-normal capitalize">
-                        {student.license_type.replace("-", " ")}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {new Date(student.enrollment_date).toLocaleDateString("en-US", { 
-                        year: "numeric", 
-                        month: "short", 
-                        day: "numeric" 
-                      })}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          student.status === "active"
-                            ? "default"
-                            : student.status === "completed"
-                            ? "secondary"
-                            : "destructive"
-                        }
+                filteredStudents.map((student) => {
+                  const studentEnrollments = enrollments[student.id] || [];
+                  const bikeEnrollment = studentEnrollments.find(e => e.license_type === 'bike');
+                  const carEnrollment = studentEnrollments.find(e => e.license_type === 'car');
+
+                  return (
+                    <TableRow key={student.id} className="hover:bg-muted/50 transition-colors">
+                      <TableCell 
+                        className="font-medium cursor-pointer hover:text-primary transition-colors"
+                        onClick={() => handleStudentClick(student)}
                       >
-                        {student.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteStudent(student);
-                        }}
-                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
+                        {student.full_name}
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          <div className="font-medium">{student.phone}</div>
+                          {student.email && <div className="text-muted-foreground text-xs">{student.email}</div>}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {bikeEnrollment ? (
+                          <div className="text-sm">
+                            <Badge variant="outline" className="font-normal mb-1">
+                              {bikeEnrollment.payment_plan} days
+                            </Badge>
+                            <div className="text-xs text-muted-foreground">
+                              ${bikeEnrollment.total_amount}
+                            </div>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleAddEnrollment(student)}
+                            className="text-xs h-7"
+                          >
+                            + Add
+                          </Button>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {carEnrollment ? (
+                          <div className="text-sm">
+                            <Badge variant="outline" className="font-normal mb-1">
+                              {carEnrollment.payment_plan} days
+                            </Badge>
+                            <div className="text-xs text-muted-foreground">
+                              ${carEnrollment.total_amount}
+                            </div>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleAddEnrollment(student)}
+                            className="text-xs h-7"
+                          >
+                            + Add
+                          </Button>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {new Date(student.enrollment_date).toLocaleDateString("en-US", { 
+                          year: "numeric", 
+                          month: "short", 
+                          day: "numeric" 
+                        })}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            student.status === "active"
+                              ? "default"
+                              : student.status === "completed"
+                              ? "secondary"
+                              : "destructive"
+                          }
+                        >
+                          {student.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteStudent(student);
+                          }}
+                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -378,6 +441,14 @@ const Students = () => {
           onOpenChange={setPaymentDialogOpen}
           studentId={selectedStudent?.id || null}
           studentName={selectedStudent?.name || ""}
+        />
+
+        <EnrollmentDialog
+          open={enrollmentDialogOpen}
+          onOpenChange={setEnrollmentDialogOpen}
+          studentId={selectedStudent?.id || ""}
+          studentName={selectedStudent?.name || ""}
+          onSuccess={fetchStudents}
         />
 
         <AlertDialog open={!!deleteStudent} onOpenChange={() => setDeleteStudent(null)}>
