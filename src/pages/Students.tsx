@@ -5,14 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -21,7 +13,8 @@ import {
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Trash2, Users } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Trash2, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { StudentPaymentDialog } from "@/components/StudentPaymentDialog";
 import { EnrollmentDialog } from "@/components/EnrollmentDialog";
@@ -57,7 +50,6 @@ const Students = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [enrollments, setEnrollments] = useState<Record<string, Enrollment[]>>({});
   const [searchTerm, setSearchTerm] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const [selectedStudent, setSelectedStudent] = useState<{ id: string; name: string } | null>(null);
@@ -67,11 +59,8 @@ const Students = () => {
 
   const [formData, setFormData] = useState({
     full_name: "",
-    email: "",
     phone: "",
-    address: "",
-    date_of_birth: "",
-    status: "active",
+    course: "",
   });
 
   useEffect(() => {
@@ -125,32 +114,71 @@ const Students = () => {
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await supabase.from("students").insert([formData]);
+    // Insert student first
+    const { data: studentData, error: studentError } = await supabase
+      .from("students")
+      .insert([{ 
+        full_name: formData.full_name, 
+        phone: formData.phone,
+        status: "active"
+      }])
+      .select()
+      .single();
 
-    setLoading(false);
-
-    if (error) {
+    if (studentError) {
+      setLoading(false);
       toast({
         title: "Error",
-        description: error.message,
+        description: studentError.message,
         variant: "destructive",
       });
-    } else {
-      toast({
-        title: "Success",
-        description: "Student added successfully",
-      });
-      setIsDialogOpen(false);
-      setFormData({
-        full_name: "",
-        email: "",
-        phone: "",
-        address: "",
-        date_of_birth: "",
-        status: "active",
-      });
-      fetchStudents();
+      return;
     }
+
+    // If course is selected, create enrollment
+    if (formData.course && studentData) {
+      const { error: enrollmentError } = await supabase
+        .from("enrollments")
+        .insert([{
+          student_id: studentData.id,
+          license_type: formData.course,
+          payment_plan: 30, // Default to 30 days
+          total_amount: 0,
+        }]);
+
+      if (enrollmentError) {
+        toast({
+          title: "Warning",
+          description: "Student added but enrollment failed",
+          variant: "destructive",
+        });
+      }
+    }
+
+    setLoading(false);
+    toast({
+      title: "Success",
+      description: "Student added successfully",
+    });
+    
+    setFormData({
+      full_name: "",
+      phone: "",
+      course: "",
+    });
+    fetchStudents();
+  };
+
+  const handleClearForm = () => {
+    setFormData({
+      full_name: "",
+      phone: "",
+      course: "",
+    });
+  };
+
+  const handleClearSearch = () => {
+    setSearchTerm("");
   };
 
   const handleDeleteStudent = async () => {
@@ -196,244 +224,182 @@ const Students = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Students</h1>
-            <p className="text-muted-foreground">Manage student records and enrollments</p>
-          </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Student
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Add New Student</DialogTitle>
-                <DialogDescription>Enter student information below</DialogDescription>
-              </DialogHeader>
+        <h1 className="text-3xl font-bold tracking-tight">Students</h1>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Add Student Card */}
+          <Card className="lg:col-span-1">
+            <CardHeader>
+              <CardTitle>Add Student</CardTitle>
+            </CardHeader>
+            <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="full_name">Full Name *</Label>
-                    <Input
-                      id="full_name"
-                      value={formData.full_name}
-                      onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone *</Label>
-                    <Input
-                      id="phone"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="date_of_birth">Date of Birth</Label>
-                    <Input
-                      id="date_of_birth"
-                      type="date"
-                      value={formData.date_of_birth}
-                      onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
-                    />
-                  </div>
-                </div>
                 <div className="space-y-2">
-                  <Label htmlFor="address">Address</Label>
                   <Input
-                    id="address"
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    placeholder="Full name"
+                    value={formData.full_name}
+                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                    required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
+                  <Input
+                    placeholder="Phone (10 digits)"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
                   <Select
-                    value={formData.status}
-                    onValueChange={(value) => setFormData({ ...formData, status: value })}
+                    value={formData.course}
+                    onValueChange={(value) => setFormData({ ...formData, course: value })}
                   >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Course (type to search or add)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="dropped">Dropped</SelectItem>
+                      <SelectItem value="bike">Bike</SelectItem>
+                      <SelectItem value="car">Car</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex justify-end gap-2">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                    Cancel
+                <div className="flex gap-2">
+                  <Button type="submit" disabled={loading} className="flex-1">
+                    {loading ? "Saving..." : "Save"}
                   </Button>
-                  <Button type="submit" disabled={loading}>
-                    {loading ? "Adding..." : "Add Student"}
+                  <Button type="button" variant="outline" onClick={handleClearForm}>
+                    Clear
                   </Button>
                 </div>
               </form>
-            </DialogContent>
-          </Dialog>
-        </div>
+            </CardContent>
+          </Card>
 
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search students..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-        </div>
+          {/* Student List Card */}
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle>Student List</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Search by name or phone"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="flex-1"
+                />
+                <Button variant="outline" onClick={handleClearSearch}>
+                  Clear
+                </Button>
+              </div>
 
-        <div className="rounded-lg border bg-card shadow-soft">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>Bike Enrollment</TableHead>
-                <TableHead>Car Enrollment</TableHead>
-                <TableHead>Enrollment Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-[80px]">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredStudents.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12">
-                    <div className="flex flex-col items-center justify-center text-muted-foreground">
-                      <Users className="h-16 w-16 mb-4 opacity-30" />
-                      <p className="text-lg font-medium mb-1">
-                        {searchTerm ? "No students found" : "No students yet"}
-                      </p>
-                      <p className="text-sm mb-4">
-                        {searchTerm 
-                          ? "Try adjusting your search terms" 
-                          : "Add your first student to get started"}
-                      </p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredStudents.map((student) => {
-                  const studentEnrollments = enrollments[student.id] || [];
-                  const bikeEnrollment = studentEnrollments.find(e => e.license_type === 'bike');
-                  const carEnrollment = studentEnrollments.find(e => e.license_type === 'car');
-
-                  return (
-                    <TableRow key={student.id} className="hover:bg-muted/50 transition-colors">
-                      <TableCell 
-                        className="font-medium cursor-pointer hover:text-primary transition-colors"
-                        onClick={() => handleStudentClick(student)}
-                      >
-                        {student.full_name}
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <div className="font-medium">{student.phone}</div>
-                          {student.email && <div className="text-muted-foreground text-xs">{student.email}</div>}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {bikeEnrollment ? (
-                          <div className="text-sm">
-                            <Badge variant="outline" className="font-normal mb-1">
-                              {bikeEnrollment.payment_plan} days
-                            </Badge>
-                            <div className="text-xs text-muted-foreground">
-                              ${bikeEnrollment.total_amount}
-                            </div>
-                          </div>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleAddEnrollment(student)}
-                            className="text-xs h-7"
-                          >
-                            + Add
-                          </Button>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {carEnrollment ? (
-                          <div className="text-sm">
-                            <Badge variant="outline" className="font-normal mb-1">
-                              {carEnrollment.payment_plan} days
-                            </Badge>
-                            <div className="text-xs text-muted-foreground">
-                              ${carEnrollment.total_amount}
-                            </div>
-                          </div>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleAddEnrollment(student)}
-                            className="text-xs h-7"
-                          >
-                            + Add
-                          </Button>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {new Date(student.enrollment_date).toLocaleDateString("en-US", { 
-                          year: "numeric", 
-                          month: "short", 
-                          day: "numeric" 
-                        })}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            student.status === "active"
-                              ? "default"
-                              : student.status === "completed"
-                              ? "secondary"
-                              : "destructive"
-                          }
-                        >
-                          {student.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteStudent(student);
-                          }}
-                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
+              <div className="rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>Bike</TableHead>
+                      <TableHead>Car</TableHead>
+                      <TableHead className="w-[80px]">Actions</TableHead>
                     </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredStudents.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-12">
+                          <div className="flex flex-col items-center justify-center text-muted-foreground">
+                            <Users className="h-16 w-16 mb-4 opacity-30" />
+                            <p className="text-lg font-medium mb-1">
+                              {searchTerm ? "No students found" : "No students yet"}
+                            </p>
+                            <p className="text-sm mb-4">
+                              {searchTerm 
+                                ? "Try adjusting your search terms" 
+                                : "Add your first student to get started"}
+                            </p>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredStudents.map((student) => {
+                        const studentEnrollments = enrollments[student.id] || [];
+                        const bikeEnrollment = studentEnrollments.find(e => e.license_type === 'bike');
+                        const carEnrollment = studentEnrollments.find(e => e.license_type === 'car');
+
+                        return (
+                          <TableRow key={student.id} className="hover:bg-muted/50 transition-colors">
+                            <TableCell 
+                              className="font-medium cursor-pointer hover:text-primary transition-colors"
+                              onClick={() => handleStudentClick(student)}
+                            >
+                              {student.full_name}
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                <div className="font-medium">{student.phone}</div>
+                                {student.email && <div className="text-muted-foreground text-xs">{student.email}</div>}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {bikeEnrollment ? (
+                                <div className="text-sm">
+                                  <Badge variant="outline" className="font-normal">
+                                    {bikeEnrollment.payment_plan}d
+                                  </Badge>
+                                </div>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleAddEnrollment(student)}
+                                  className="text-xs h-7"
+                                >
+                                  + Add
+                                </Button>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {carEnrollment ? (
+                                <div className="text-sm">
+                                  <Badge variant="outline" className="font-normal">
+                                    {carEnrollment.payment_plan}d
+                                  </Badge>
+                                </div>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleAddEnrollment(student)}
+                                  className="text-xs h-7"
+                                >
+                                  + Add
+                                </Button>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteStudent(student);
+                                }}
+                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <StudentPaymentDialog
