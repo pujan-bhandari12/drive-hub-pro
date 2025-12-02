@@ -37,25 +37,44 @@ const Dashboard = () => {
         .select("*", { count: "exact", head: true })
         .eq("lesson_date", today);
 
-      // Fetch payments by enrollment type
-      const { data: transactions } = await supabase
-        .from("transactions")
-        .select("amount, student_id, payment_type")
-        .eq("status", "completed");
-
+      // Fetch enrollments with student info to categorize payments
       const { data: enrollments } = await supabase
         .from("enrollments")
         .select("student_id, license_type");
+
+      // Create a map of student to their enrollment types
+      const studentEnrollments: Record<string, string[]> = {};
+      enrollments?.forEach((e) => {
+        if (!studentEnrollments[e.student_id]) {
+          studentEnrollments[e.student_id] = [];
+        }
+        studentEnrollments[e.student_id].push(e.license_type);
+      });
+
+      // Fetch all completed transactions
+      const { data: transactions } = await supabase
+        .from("transactions")
+        .select("amount, student_id")
+        .eq("status", "completed");
 
       let carPayments = 0;
       let bikePayments = 0;
 
       transactions?.forEach((t) => {
-        const enrollment = enrollments?.find((e) => e.student_id === t.student_id);
-        if (enrollment?.license_type === "car") {
-          carPayments += parseFloat(t.amount.toString());
-        } else if (enrollment?.license_type === "bike") {
-          bikePayments += parseFloat(t.amount.toString());
+        const types = studentEnrollments[t.student_id] || [];
+        const amount = parseFloat(t.amount.toString());
+        // If student has only one enrollment type, attribute to that
+        if (types.length === 1) {
+          if (types[0] === "car") carPayments += amount;
+          else if (types[0] === "bike") bikePayments += amount;
+        } else if (types.includes("car") && !types.includes("bike")) {
+          carPayments += amount;
+        } else if (types.includes("bike") && !types.includes("car")) {
+          bikePayments += amount;
+        } else {
+          // Split evenly if both enrollments exist
+          carPayments += amount / 2;
+          bikePayments += amount / 2;
         }
       });
 

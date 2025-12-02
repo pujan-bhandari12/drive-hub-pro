@@ -163,7 +163,7 @@ const Transactions = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="amount">Amount (₹) *</Label>
+                    <Label htmlFor="amount">Amount (NPR) *</Label>
                     <Input
                       id="amount"
                       type="number"
@@ -286,7 +286,7 @@ const Transactions = () => {
                     </TableCell>
                     <TableCell className="font-medium">{transaction.students?.full_name}</TableCell>
                     <TableCell className="font-semibold text-emerald-600">
-                      ₹{transaction.amount.toLocaleString()}
+                      NPR {transaction.amount.toLocaleString()}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="font-normal capitalize">
