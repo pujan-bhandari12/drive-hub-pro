@@ -128,7 +128,7 @@ export const EnrollmentDialog = ({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="total_amount">Total Amount *</Label>
+            <Label htmlFor="total_amount">Total Amount (NPR) *</Label>
             <Input
               id="total_amount"
               type="number"

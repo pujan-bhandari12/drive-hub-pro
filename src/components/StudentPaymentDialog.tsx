@@ -82,7 +82,7 @@ export const StudentPaymentDialog = ({
           <div className="space-y-4">
             <div className="rounded-lg bg-primary/10 p-4">
               <div className="text-sm text-muted-foreground">Total Paid</div>
-              <div className="text-2xl font-bold text-primary">₹{totalPaid.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-primary">NPR {totalPaid.toLocaleString()}</div>
             </div>
 
             {transactions.length === 0 ? (
@@ -109,7 +109,7 @@ export const StudentPaymentDialog = ({
                           {new Date(transaction.transaction_date).toLocaleDateString()}
                         </TableCell>
                         <TableCell className="font-semibold">
-                          ₹{transaction.amount.toLocaleString()}
+                          NPR {transaction.amount.toLocaleString()}
                         </TableCell>
                         <TableCell className="capitalize">
                           {transaction.payment_method.replace("_", " ")}
