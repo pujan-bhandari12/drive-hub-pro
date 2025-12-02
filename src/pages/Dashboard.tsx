@@ -2,143 +2,174 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Users, Calendar, DollarSign, TrendingUp } from "lucide-react";
+import { Calendar } from "lucide-react";
+
+interface DueItem {
+  id: string;
+  student_name: string;
+  end_date: string;
+  license_type: string;
+}
 
 const Dashboard = () => {
   const [stats, setStats] = useState({
     totalStudents: 0,
-    activeStudents: 0,
     todayAttendance: 0,
-    monthlyRevenue: 0,
+    carPayments: 0,
+    bikePayments: 0,
   });
+  const [dueItems, setDueItems] = useState<DueItem[]>([]);
 
   useEffect(() => {
     fetchStats();
+    fetchDueItems();
   }, []);
 
   const fetchStats = async () => {
     try {
-      // Fetch total students
       const { count: totalStudents } = await supabase
         .from("students")
         .select("*", { count: "exact", head: true });
 
-      // Fetch active students
-      const { count: activeStudents } = await supabase
-        .from("students")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "active");
-
-      // Fetch today's attendance
       const today = new Date().toISOString().split("T")[0];
       const { count: todayAttendance } = await supabase
         .from("attendance")
         .select("*", { count: "exact", head: true })
         .eq("lesson_date", today);
 
-      // Fetch monthly revenue
-      const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      // Fetch payments by enrollment type
       const { data: transactions } = await supabase
         .from("transactions")
-        .select("amount")
-        .gte("transaction_date", firstDayOfMonth.toISOString())
+        .select("amount, student_id, payment_type")
         .eq("status", "completed");
 
-      const monthlyRevenue = transactions?.reduce((sum, t) => sum + parseFloat(t.amount.toString()), 0) || 0;
+      const { data: enrollments } = await supabase
+        .from("enrollments")
+        .select("student_id, license_type");
+
+      let carPayments = 0;
+      let bikePayments = 0;
+
+      transactions?.forEach((t) => {
+        const enrollment = enrollments?.find((e) => e.student_id === t.student_id);
+        if (enrollment?.license_type === "car") {
+          carPayments += parseFloat(t.amount.toString());
+        } else if (enrollment?.license_type === "bike") {
+          bikePayments += parseFloat(t.amount.toString());
+        }
+      });
 
       setStats({
         totalStudents: totalStudents || 0,
-        activeStudents: activeStudents || 0,
         todayAttendance: todayAttendance || 0,
-        monthlyRevenue,
+        carPayments,
+        bikePayments,
       });
     } catch (error) {
       console.error("Error fetching stats:", error);
     }
   };
 
-  const statCards = [
-    {
-      title: "Total Students",
-      value: stats.totalStudents,
-      icon: Users,
-      description: `${stats.activeStudents} active`,
-      color: "text-primary",
-    },
-    {
-      title: "Today's Lessons",
-      value: stats.todayAttendance,
-      icon: Calendar,
-      description: "Scheduled today",
-      color: "text-blue-600",
-    },
-    {
-      title: "Monthly Revenue",
-      value: `₹${stats.monthlyRevenue.toLocaleString()}`,
-      icon: DollarSign,
-      description: "Current month",
-      color: "text-emerald-600",
-    },
-    {
-      title: "Growth",
-      value: "+12%",
-      icon: TrendingUp,
-      description: "vs last month",
-      color: "text-orange-600",
-    },
-  ];
+  const fetchDueItems = async () => {
+    try {
+      const twoDaysFromNow = new Date();
+      twoDaysFromNow.setDate(twoDaysFromNow.getDate() + 2);
+
+      const { data: enrollments } = await supabase
+        .from("enrollments")
+        .select("id, student_id, end_date, license_type, status")
+        .lte("end_date", twoDaysFromNow.toISOString().split("T")[0])
+        .eq("status", "active");
+
+      if (enrollments && enrollments.length > 0) {
+        const studentIds = enrollments.map((e) => e.student_id);
+        const { data: students } = await supabase
+          .from("students")
+          .select("id, full_name")
+          .in("id", studentIds);
+
+        const items: DueItem[] = enrollments.map((e) => ({
+          id: e.id,
+          student_name: students?.find((s) => s.id === e.student_id)?.full_name || "Unknown",
+          end_date: e.end_date || "",
+          license_type: e.license_type,
+        }));
+        setDueItems(items);
+      }
+    } catch (error) {
+      console.error("Error fetching due items:", error);
+    }
+  };
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">Welcome to DriveTrack POS System</p>
-        </div>
+        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {statCards.map((stat) => {
-            const Icon = stat.icon;
-            return (
-              <Card key={stat.title} className="shadow-soft transition-shadow hover:shadow-medium">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                  <Icon className={cn("h-4 w-4", stat.color)} />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stat.value}</div>
-                  <p className="text-xs text-muted-foreground">{stat.description}</p>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
+        {/* Top Stats Row */}
         <div className="grid gap-4 md:grid-cols-2">
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
+          <Card className="border-t-4 border-t-blue-500">
+            <CardContent className="pt-4">
+              <p className="text-sm text-muted-foreground">Students</p>
+              <p className="text-3xl font-bold">{stats.totalStudents}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-t-4 border-t-blue-500">
+            <CardContent className="pt-4">
+              <p className="text-sm text-muted-foreground">Today Attendance</p>
+              <p className="text-3xl font-bold">{stats.todayAttendance}</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Bottom Cards Row */}
+        <div className="grid gap-4 md:grid-cols-3">
+          {/* Due Soon Card */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-semibold">Due Soon (&lt;=2 days & unpaid)</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
-              <Button className="w-full justify-start" variant="outline" asChild>
-                <a href="/students">Add New Student</a>
-              </Button>
-              <Button className="w-full justify-start" variant="outline" asChild>
-                <a href="/attendance">Mark Attendance</a>
-              </Button>
-              <Button className="w-full justify-start" variant="outline" asChild>
-                <a href="/transactions">Record Payment</a>
-              </Button>
+            <CardContent>
+              {dueItems.length === 0 ? (
+                <p className="text-destructive">No due items</p>
+              ) : (
+                <div className="space-y-2">
+                  {dueItems.map((item) => (
+                    <p key={item.id} className="text-sm">
+                      {item.student_name} - {item.license_type} ({item.end_date})
+                    </p>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
+          {/* Discounts Card */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-base font-semibold">Discounts Given</CardTitle>
+              <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">No recent activity to display</p>
+              <p className="text-orange-500 bg-orange-50 px-3 py-1 rounded inline-block">No discounts</p>
+            </CardContent>
+          </Card>
+
+          {/* Payments Card */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-base font-semibold">Payments</CardTitle>
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="border rounded-lg p-3 border-b-4 border-b-blue-500">
+                <p className="text-sm text-muted-foreground">Car</p>
+                <p className="text-xl font-bold text-emerald-500">NPR {stats.carPayments.toLocaleString()}</p>
+              </div>
+              <div className="border rounded-lg p-3 border-b-4 border-b-blue-500">
+                <p className="text-sm text-muted-foreground">Motorcycle</p>
+                <p className="text-xl font-bold text-emerald-500">NPR {stats.bikePayments.toLocaleString()}</p>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -146,9 +177,5 @@ const Dashboard = () => {
     </DashboardLayout>
   );
 };
-
-function cn(...classes: string[]) {
-  return classes.filter(Boolean).join(" ");
-}
 
 export default Dashboard;
