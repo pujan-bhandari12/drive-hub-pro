@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -16,7 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 
 interface EnrollmentDialogProps {
@@ -26,6 +25,21 @@ interface EnrollmentDialogProps {
   studentName: string;
   onSuccess?: () => void;
 }
+
+const PRICING = {
+  motorcycle: {
+    1: 500,
+    7: 3000,
+    15: 5500,
+    30: 10000,
+  },
+  car: {
+    1: 800,
+    7: 5000,
+    15: 9000,
+    30: 16000,
+  },
+};
 
 export const EnrollmentDialog = ({
   open,
@@ -37,21 +51,29 @@ export const EnrollmentDialog = ({
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const [formData, setFormData] = useState({
-    license_type: "",
-    payment_plan: "",
-    total_amount: "",
+    license_type: "" as "" | "motorcycle" | "car",
+    payment_plan: "" as "" | "1" | "7" | "15" | "30",
   });
+
+  useEffect(() => {
+    if (!open) {
+      setFormData({ license_type: "", payment_plan: "" });
+    }
+  }, [open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.license_type || !formData.payment_plan) return;
+
     setLoading(true);
+    const price = PRICING[formData.license_type][parseInt(formData.payment_plan) as 1 | 7 | 15 | 30];
 
     const { error } = await supabase.from("enrollments").insert([
       {
         student_id: studentId,
-        license_type: formData.license_type,
+        license_type: formData.license_type === "motorcycle" ? "bike" : "car",
         payment_plan: parseInt(formData.payment_plan),
-        total_amount: parseFloat(formData.total_amount),
+        total_amount: price,
       },
     ]);
 
@@ -68,11 +90,6 @@ export const EnrollmentDialog = ({
         title: "Success",
         description: "Enrollment added successfully",
       });
-      setFormData({
-        license_type: "",
-        payment_plan: "",
-        total_amount: "",
-      });
       onOpenChange(false);
       onSuccess?.();
     }
@@ -84,62 +101,56 @@ export const EnrollmentDialog = ({
         <DialogHeader>
           <DialogTitle>Add Enrollment for {studentName}</DialogTitle>
           <DialogDescription>
-            Add a bike or car training enrollment with payment plan
+            Select course type and duration with pricing
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="license_type">License Type *</Label>
+            <Label>Course Type *</Label>
             <Select
               value={formData.license_type}
-              onValueChange={(value) =>
-                setFormData({ ...formData, license_type: value })
+              onValueChange={(value: "motorcycle" | "car") =>
+                setFormData({ ...formData, license_type: value, payment_plan: "" })
               }
-              required
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select type" />
+                <SelectValue placeholder="Select course" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="bike">Bike</SelectItem>
+                <SelectItem value="motorcycle">Motorcycle</SelectItem>
                 <SelectItem value="car">Car</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="payment_plan">Payment Plan (Days) *</Label>
-            <Select
-              value={formData.payment_plan}
-              onValueChange={(value) =>
-                setFormData({ ...formData, payment_plan: value })
-              }
-              required
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select plan" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">1 Day</SelectItem>
-                <SelectItem value="7">7 Days</SelectItem>
-                <SelectItem value="15">15 Days</SelectItem>
-                <SelectItem value="20">20 Days</SelectItem>
-                <SelectItem value="30">30 Days</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="total_amount">Total Amount (NPR) *</Label>
-            <Input
-              id="total_amount"
-              type="number"
-              step="0.01"
-              value={formData.total_amount}
-              onChange={(e) =>
-                setFormData({ ...formData, total_amount: e.target.value })
-              }
-              required
-            />
-          </div>
+          {formData.license_type && (
+            <div className="space-y-2">
+              <Label>Duration & Price *</Label>
+              <Select
+                value={formData.payment_plan}
+                onValueChange={(value: "1" | "7" | "15" | "30") =>
+                  setFormData({ ...formData, payment_plan: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select duration" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 Day - NPR {PRICING[formData.license_type][1].toLocaleString()}</SelectItem>
+                  <SelectItem value="7">7 Days - NPR {PRICING[formData.license_type][7].toLocaleString()}</SelectItem>
+                  <SelectItem value="15">15 Days - NPR {PRICING[formData.license_type][15].toLocaleString()}</SelectItem>
+                  <SelectItem value="30">30 Days - NPR {PRICING[formData.license_type][30].toLocaleString()}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {formData.license_type && formData.payment_plan && (
+            <div className="p-3 bg-muted rounded-md">
+              <p className="text-sm text-muted-foreground">Total Amount</p>
+              <p className="text-xl font-bold text-primary">
+                NPR {PRICING[formData.license_type][parseInt(formData.payment_plan) as 1 | 7 | 15 | 30].toLocaleString()}
+              </p>
+            </div>
+          )}
           <div className="flex justify-end gap-2">
             <Button
               type="button"
@@ -148,7 +159,7 @@ export const EnrollmentDialog = ({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || !formData.license_type || !formData.payment_plan}>
               {loading ? "Adding..." : "Add Enrollment"}
             </Button>
           </div>

@@ -46,6 +46,21 @@ interface Enrollment {
   total_amount: number;
 }
 
+const PRICING = {
+  motorcycle: {
+    1: 500,
+    7: 3000,
+    15: 5500,
+    30: 10000,
+  },
+  car: {
+    1: 800,
+    7: 5000,
+    15: 9000,
+    30: 16000,
+  },
+};
+
 const Students = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [enrollments, setEnrollments] = useState<Record<string, Enrollment[]>>({});
@@ -60,7 +75,8 @@ const Students = () => {
   const [formData, setFormData] = useState({
     full_name: "",
     phone: "",
-    course: "",
+    course: "" as "" | "motorcycle" | "car",
+    days: "" as "" | "1" | "7" | "15" | "30",
   });
 
   useEffect(() => {
@@ -135,15 +151,16 @@ const Students = () => {
       return;
     }
 
-    // If course is selected, create enrollment
-    if (formData.course && studentData) {
+    // If course and days are selected, create enrollment
+    if (formData.course && formData.days && studentData) {
+      const price = PRICING[formData.course][parseInt(formData.days) as 1 | 7 | 15 | 30];
       const { error: enrollmentError } = await supabase
         .from("enrollments")
         .insert([{
           student_id: studentData.id,
-          license_type: formData.course,
-          payment_plan: 30, // Default to 30 days
-          total_amount: 0,
+          license_type: formData.course === "motorcycle" ? "bike" : "car",
+          payment_plan: parseInt(formData.days),
+          total_amount: price,
         }]);
 
       if (enrollmentError) {
@@ -165,6 +182,7 @@ const Students = () => {
       full_name: "",
       phone: "",
       course: "",
+      days: "",
     });
     fetchStudents();
   };
@@ -174,6 +192,7 @@ const Students = () => {
       full_name: "",
       phone: "",
       course: "",
+      days: "",
     });
   };
 
@@ -253,17 +272,36 @@ const Students = () => {
                 <div className="space-y-2">
                   <Select
                     value={formData.course}
-                    onValueChange={(value) => setFormData({ ...formData, course: value })}
+                    onValueChange={(value: "motorcycle" | "car") => setFormData({ ...formData, course: value, days: "" })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Course (type to search or add)" />
+                      <SelectValue placeholder="Select Course" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="bike">Bike</SelectItem>
+                      <SelectItem value="motorcycle">Motorcycle</SelectItem>
                       <SelectItem value="car">Car</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+                {formData.course && (
+                  <div className="space-y-2">
+                    <Label>Duration & Price</Label>
+                    <Select
+                      value={formData.days}
+                      onValueChange={(value: "1" | "7" | "15" | "30") => setFormData({ ...formData, days: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select duration" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 Day - NPR {PRICING[formData.course][1].toLocaleString()}</SelectItem>
+                        <SelectItem value="7">7 Days - NPR {PRICING[formData.course][7].toLocaleString()}</SelectItem>
+                        <SelectItem value="15">15 Days - NPR {PRICING[formData.course][15].toLocaleString()}</SelectItem>
+                        <SelectItem value="30">30 Days - NPR {PRICING[formData.course][30].toLocaleString()}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <Button type="submit" disabled={loading} className="flex-1">
                     {loading ? "Saving..." : "Save"}
@@ -300,7 +338,7 @@ const Students = () => {
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>Contact</TableHead>
-                      <TableHead>Bike</TableHead>
+                      <TableHead>Motorcycle</TableHead>
                       <TableHead>Car</TableHead>
                       <TableHead className="w-[80px]">Actions</TableHead>
                     </TableRow>
@@ -346,7 +384,7 @@ const Students = () => {
                               {bikeEnrollment ? (
                                 <div className="text-sm">
                                   <Badge variant="outline" className="font-normal">
-                                    {bikeEnrollment.payment_plan}d
+                                    {bikeEnrollment.payment_plan}d - NPR {bikeEnrollment.total_amount.toLocaleString()}
                                   </Badge>
                                 </div>
                               ) : (
@@ -364,7 +402,7 @@ const Students = () => {
                               {carEnrollment ? (
                                 <div className="text-sm">
                                   <Badge variant="outline" className="font-normal">
-                                    {carEnrollment.payment_plan}d
+                                    {carEnrollment.payment_plan}d - NPR {carEnrollment.total_amount.toLocaleString()}
                                   </Badge>
                                 </div>
                               ) : (
