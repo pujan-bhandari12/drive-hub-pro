@@ -11,10 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { StudentPaymentDialog } from "@/components/StudentPaymentDialog";
 import { EnrollmentDialog } from "@/components/EnrollmentDialog";
@@ -332,109 +329,112 @@ const Students = () => {
                 </Button>
               </div>
 
-              <div className="rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Contact</TableHead>
-                      <TableHead>Motorcycle</TableHead>
-                      <TableHead>Car</TableHead>
-                      <TableHead className="w-[80px]">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredStudents.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center py-12">
-                          <div className="flex flex-col items-center justify-center text-muted-foreground">
-                            <Users className="h-16 w-16 mb-4 opacity-30" />
-                            <p className="text-lg font-medium mb-1">
-                              {searchTerm ? "No students found" : "No students yet"}
-                            </p>
-                            <p className="text-sm mb-4">
-                              {searchTerm 
-                                ? "Try adjusting your search terms" 
-                                : "Add your first student to get started"}
-                            </p>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredStudents.map((student) => {
-                        const studentEnrollments = enrollments[student.id] || [];
-                        const bikeEnrollment = studentEnrollments.find(e => e.license_type === 'bike');
-                        const carEnrollment = studentEnrollments.find(e => e.license_type === 'car');
-
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Car Students Column */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-lg">Car</h3>
+                    <span className="text-sm text-muted-foreground">
+                      {filteredStudents.filter(s => enrollments[s.id]?.some(e => e.license_type === 'car')).length} student{filteredStudents.filter(s => enrollments[s.id]?.some(e => e.license_type === 'car')).length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {filteredStudents
+                      .filter(student => enrollments[student.id]?.some(e => e.license_type === 'car'))
+                      .map(student => {
+                        const carEnrollment = enrollments[student.id]?.find(e => e.license_type === 'car');
                         return (
-                          <TableRow key={student.id} className="hover:bg-muted/50 transition-colors">
-                            <TableCell 
-                              className="font-medium cursor-pointer hover:text-primary transition-colors"
+                          <div 
+                            key={`car-${student.id}`} 
+                            className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                          >
+                            <div 
+                              className="cursor-pointer flex-1"
                               onClick={() => handleStudentClick(student)}
                             >
-                              {student.full_name}
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm">
-                                <div className="font-medium">{student.phone}</div>
-                                {student.email && <div className="text-muted-foreground text-xs">{student.email}</div>}
+                              <div className="font-medium">{student.full_name}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {student.phone} • Car
                               </div>
-                            </TableCell>
-                            <TableCell>
-                              {bikeEnrollment ? (
-                                <div className="text-sm">
-                                  <Badge variant="outline" className="font-normal">
-                                    {bikeEnrollment.payment_plan}d - NPR {bikeEnrollment.total_amount.toLocaleString()}
-                                  </Badge>
+                              {carEnrollment && (
+                                <div className="text-sm text-muted-foreground">
+                                  Package: {carEnrollment.payment_plan} days — NPR {carEnrollment.total_amount.toLocaleString()}
                                 </div>
-                              ) : (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleAddEnrollment(student)}
-                                  className="text-xs h-7"
-                                >
-                                  + Add
-                                </Button>
                               )}
-                            </TableCell>
-                            <TableCell>
-                              {carEnrollment ? (
-                                <div className="text-sm">
-                                  <Badge variant="outline" className="font-normal">
-                                    {carEnrollment.payment_plan}d - NPR {carEnrollment.total_amount.toLocaleString()}
-                                  </Badge>
-                                </div>
-                              ) : (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleAddEnrollment(student)}
-                                  className="text-xs h-7"
-                                >
-                                  + Add
-                                </Button>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setDeleteStudent(student);
-                                }}
-                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteStudent(student);
+                              }}
+                            >
+                              Delete
+                            </Button>
+                          </div>
                         );
-                      })
+                      })}
+                    {filteredStudents.filter(s => enrollments[s.id]?.some(e => e.license_type === 'car')).length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        No car students found
+                      </div>
                     )}
-                  </TableBody>
-                </Table>
+                  </div>
+                </div>
+
+                {/* Motorcycle Students Column */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-lg">Motorcycle</h3>
+                    <span className="text-sm text-muted-foreground">
+                      {filteredStudents.filter(s => enrollments[s.id]?.some(e => e.license_type === 'bike')).length} student{filteredStudents.filter(s => enrollments[s.id]?.some(e => e.license_type === 'bike')).length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {filteredStudents
+                      .filter(student => enrollments[student.id]?.some(e => e.license_type === 'bike'))
+                      .map(student => {
+                        const bikeEnrollment = enrollments[student.id]?.find(e => e.license_type === 'bike');
+                        return (
+                          <div 
+                            key={`bike-${student.id}`} 
+                            className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                          >
+                            <div 
+                              className="cursor-pointer flex-1"
+                              onClick={() => handleStudentClick(student)}
+                            >
+                              <div className="font-medium">{student.full_name}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {student.phone} • Motorcycle
+                              </div>
+                              {bikeEnrollment && (
+                                <div className="text-sm text-muted-foreground">
+                                  Package: {bikeEnrollment.payment_plan} days — NPR {bikeEnrollment.total_amount.toLocaleString()}
+                                </div>
+                              )}
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteStudent(student);
+                              }}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    {filteredStudents.filter(s => enrollments[s.id]?.some(e => e.license_type === 'bike')).length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        No motorcycle students found
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
