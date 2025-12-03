@@ -445,6 +445,7 @@ const Students = () => {
           onOpenChange={setPaymentDialogOpen}
           studentId={selectedStudent?.id || null}
           studentName={selectedStudent?.name || ""}
+          onPaymentRecorded={fetchStudents}
         />
 
         <EnrollmentDialog
