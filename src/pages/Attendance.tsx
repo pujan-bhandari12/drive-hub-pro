@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
+import { TypeaheadSearch } from "@/components/TypeaheadSearch";
 
 interface AttendanceRecord {
   id: string;
@@ -26,9 +26,8 @@ interface Student {
 const Attendance = () => {
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Student[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [searchValue, setSearchValue] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -59,23 +58,15 @@ const Attendance = () => {
     setStudents(data || []);
   };
 
-  const handleSearch = () => {
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      setSelectedStudent(null);
-      return;
-    }
-    const results = students.filter(
-      (s) =>
-        s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.phone.includes(searchQuery)
-    );
-    setSearchResults(results);
-    if (results.length === 1) {
-      setSelectedStudent(results[0]);
-    } else {
-      setSelectedStudent(null);
-    }
+  const searchItems = students.map((s) => ({
+    id: s.id,
+    label: s.full_name,
+    sublabel: s.phone,
+  }));
+
+  const handleStudentSelect = (item: { id: string; label: string }) => {
+    const student = students.find((s) => s.id === item.id);
+    setSelectedStudent(student || null);
   };
 
   const handleCheckIn = async () => {
@@ -116,8 +107,7 @@ const Attendance = () => {
         title: "Success",
         description: `${selectedStudent.full_name} checked in successfully`,
       });
-      setSearchQuery("");
-      setSearchResults([]);
+      setSearchValue("");
       setSelectedStudent(null);
       fetchTodayAttendance();
     }
@@ -150,36 +140,18 @@ const Attendance = () => {
                 </p>
 
                 <div className="flex gap-2">
-                  <Input
+                  <TypeaheadSearch
+                    items={searchItems}
                     placeholder="Search name or phone"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                    value={searchValue}
+                    onChange={setSearchValue}
+                    onSelect={handleStudentSelect}
                     className="flex-1"
                   />
-                  <Button variant="outline" onClick={handleSearch}>
-                    Search
-                  </Button>
                   <Button onClick={handleCheckIn} disabled={loading || !selectedStudent}>
                     {loading ? "..." : "Check-in"}
                   </Button>
                 </div>
-
-                {searchResults.length > 0 && (
-                  <div className="mt-3 border rounded-md max-h-40 overflow-y-auto">
-                    {searchResults.map((student) => (
-                      <div
-                        key={student.id}
-                        onClick={() => setSelectedStudent(student)}
-                        className={`p-2 cursor-pointer hover:bg-muted text-sm ${
-                          selectedStudent?.id === student.id ? "bg-muted" : ""
-                        }`}
-                      >
-                        {student.full_name} - {student.phone}
-                      </div>
-                    ))}
-                  </div>
-                )}
 
                 {selectedStudent && (
                   <p className="mt-2 text-sm text-primary">
