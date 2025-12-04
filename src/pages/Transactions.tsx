@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DollarSign, Printer } from "lucide-react";
+import { DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { StudentPaymentDialog } from "@/components/StudentPaymentDialog";
 
@@ -147,92 +145,95 @@ const Transactions = () => {
     }, 250);
   };
 
+  const generateReceiptNumber = (transaction: Transaction, index: number) => {
+    const date = new Date(transaction.transaction_date);
+    const dateStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+    const num = String(transactions.length - index).padStart(4, '0');
+    return `R-${dateStr}-${num}`;
+  };
+
+  const handleDelete = async (e: React.MouseEvent, transactionId: string) => {
+    e.stopPropagation();
+    const { error } = await supabase.from("transactions").delete().eq("id", transactionId);
+    if (error) {
+      toast({ title: "Error", description: "Failed to delete transaction", variant: "destructive" });
+    } else {
+      toast({ title: "Deleted", description: "Transaction deleted successfully" });
+      fetchTransactions();
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div>
+        <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
-          <p className="text-muted-foreground">View payment records</p>
         </div>
 
-        <div className="rounded-lg border bg-card shadow-soft">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Student</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Payment Method</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-10"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {transactions.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12">
-                    <div className="flex flex-col items-center justify-center text-muted-foreground">
-                      <DollarSign className="h-16 w-16 mb-4 opacity-30" />
-                      <p className="text-lg font-medium mb-1">No transactions yet</p>
-                      <p className="text-sm">Click on a student to record payments</p>
+        <div className="space-y-3">
+          {transactions.length === 0 ? (
+            <div className="rounded-lg border bg-card p-12">
+              <div className="flex flex-col items-center justify-center text-muted-foreground">
+                <DollarSign className="h-16 w-16 mb-4 opacity-30" />
+                <p className="text-lg font-medium mb-1">No transactions yet</p>
+                <p className="text-sm">Click on a student to record payments</p>
+              </div>
+            </div>
+          ) : (
+            transactions.map((transaction, index) => (
+              <div
+                key={transaction.id}
+                className="rounded-lg border bg-card p-4 hover:bg-muted/50 transition-colors cursor-pointer"
+                onClick={() => handleStudentClick(transaction)}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <div className="font-semibold text-foreground">
+                      PAY • {generateReceiptNumber(transaction, index)}
                     </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                transactions.map((transaction) => (
-                  <TableRow 
-                    key={transaction.id} 
-                    className="hover:bg-muted/50 transition-colors cursor-pointer"
-                    onClick={() => handleStudentClick(transaction)}
-                  >
-                    <TableCell className="text-sm">
-                      {new Date(transaction.transaction_date).toLocaleDateString("en-US", { 
-                        year: "numeric", 
-                        month: "short", 
-                        day: "numeric" 
+                    <div className="text-sm text-muted-foreground">
+                      {transaction.students?.full_name} • {transaction.payment_type.replace("_", " ")} • {new Date(transaction.transaction_date).toLocaleDateString("en-US", {
+                        month: "numeric",
+                        day: "numeric",
+                        year: "numeric"
+                      })}, {new Date(transaction.transaction_date).toLocaleTimeString("en-US", {
+                        hour: "numeric",
+                        minute: "2-digit",
+                        second: "2-digit",
+                        hour12: true
                       })}
-                    </TableCell>
-                    <TableCell className="font-medium">{transaction.students?.full_name}</TableCell>
-                    <TableCell className="font-semibold text-emerald-600">
-                      NPR {transaction.amount.toLocaleString()}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="font-normal capitalize">
-                        {transaction.payment_method.replace("_", " ")}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="capitalize text-sm">
-                      {transaction.payment_type.replace("_", " ")}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          transaction.status === "completed"
-                            ? "default"
-                            : transaction.status === "pending"
-                            ? "secondary"
-                            : "destructive"
-                        }
-                      >
-                        {transaction.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <div className="font-semibold text-foreground">
+                        NPR {transaction.amount.toLocaleString()}
+                      </div>
+                      <div className="text-xs text-muted-foreground uppercase">
+                        {transaction.payment_method}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
+                        variant="outline"
+                        size="sm"
                         onClick={(e) => handlePrint(e, transaction)}
                       >
-                        <Printer className="h-4 w-4" />
+                        Print
                       </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => handleDelete(e, transaction.id)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
