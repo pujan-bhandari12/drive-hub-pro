@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2 } from "lucide-react";
+import { Loader2, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 
@@ -128,7 +128,105 @@ export const StudentPaymentDialog = ({
   const totalAmount = enrollments.reduce((sum, e) => sum + e.total_amount, 0);
   const remaining = totalAmount - totalPaid;
 
-  const handleRecordPayment = async (markFullPaid = false) => {
+  const printReceipt = (amount: number, discount: number, method: string, date: string) => {
+    const printWindow = window.open("", "_blank", "width=400,height=600");
+    if (!printWindow) return;
+
+    const receiptHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Payment Receipt</title>
+        <style>
+          body { font-family: 'Courier New', monospace; padding: 20px; max-width: 300px; margin: 0 auto; }
+          .header { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
+          .title { font-size: 18px; font-weight: bold; }
+          .subtitle { font-size: 12px; color: #666; }
+          .row { display: flex; justify-content: space-between; padding: 5px 0; }
+          .label { color: #666; }
+          .value { font-weight: bold; }
+          .divider { border-top: 1px dashed #ccc; margin: 10px 0; }
+          .total { font-size: 16px; font-weight: bold; }
+          .footer { text-align: center; margin-top: 20px; font-size: 11px; color: #666; }
+          @media print { body { padding: 0; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="title">DRIVING TRAINING CENTER</div>
+          <div class="subtitle">Payment Receipt</div>
+        </div>
+        
+        <div class="row">
+          <span class="label">Date:</span>
+          <span class="value">${new Date(date).toLocaleDateString()}</span>
+        </div>
+        <div class="row">
+          <span class="label">Time:</span>
+          <span class="value">${new Date(date).toLocaleTimeString()}</span>
+        </div>
+        
+        <div class="divider"></div>
+        
+        <div class="row">
+          <span class="label">Student:</span>
+          <span class="value">${studentName}</span>
+        </div>
+        <div class="row">
+          <span class="label">Phone:</span>
+          <span class="value">${studentPhone || "N/A"}</span>
+        </div>
+        <div class="row">
+          <span class="label">Course:</span>
+          <span class="value">${enrollments.map(e => e.license_type === "bike" ? "Motorcycle" : "Car").join(", ")}</span>
+        </div>
+        
+        <div class="divider"></div>
+        
+        <div class="row">
+          <span class="label">Payment Method:</span>
+          <span class="value">${method.toUpperCase()}</span>
+        </div>
+        <div class="row">
+          <span class="label">Amount Paid:</span>
+          <span class="value">NPR ${amount.toLocaleString()}</span>
+        </div>
+        ${discount > 0 ? `
+        <div class="row">
+          <span class="label">Discount:</span>
+          <span class="value">NPR ${discount.toLocaleString()}</span>
+        </div>
+        ` : ""}
+        
+        <div class="divider"></div>
+        
+        <div class="row total">
+          <span>Total Paid:</span>
+          <span>NPR ${(totalPaid + amount).toLocaleString()}</span>
+        </div>
+        <div class="row">
+          <span class="label">Remaining:</span>
+          <span class="value">NPR ${Math.max(0, remaining - amount - discount).toLocaleString()}</span>
+        </div>
+        
+        <div class="footer">
+          <p>Thank you for your payment!</p>
+          <p>--- ${new Date().toLocaleDateString()} ---</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(receiptHTML);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
+
+  const handleRecordPayment = async (markFullPaid = false, shouldPrint = false) => {
     if (!studentId) return;
     
     const amount = markFullPaid ? remaining : parseFloat(paymentForm.amount);
@@ -175,10 +273,19 @@ export const StudentPaymentDialog = ({
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Success", description: "Payment recorded successfully" });
+      
+      if (shouldPrint) {
+        printReceipt(amount, discount, paymentForm.method, new Date().toISOString());
+      }
+      
       setPaymentForm({ amount: "", discount: "0", method: "cash", note: "" });
       fetchData();
       onPaymentRecorded?.();
     }
+  };
+
+  const handlePrintTransaction = (transaction: Transaction) => {
+    printReceipt(transaction.amount, 0, transaction.payment_method, transaction.transaction_date);
   };
 
   const getLicenseLabel = (type: string) => type === "bike" ? "Motorcycle" : "Car";
@@ -291,11 +398,21 @@ export const StudentPaymentDialog = ({
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
-                  <Button onClick={() => handleRecordPayment(false)} disabled={submitting}>
+                  <Button onClick={() => handleRecordPayment(false, false)} disabled={submitting}>
                     {submitting ? "Recording..." : "Record Payment"}
                   </Button>
-                  <Button variant="outline" onClick={() => handleRecordPayment(true)} disabled={submitting}>
+                  <Button variant="secondary" onClick={() => handleRecordPayment(false, true)} disabled={submitting}>
+                    <Printer className="h-4 w-4 mr-1" />
+                    Record & Print
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" onClick={() => handleRecordPayment(true, false)} disabled={submitting}>
                     Mark Full Paid
+                  </Button>
+                  <Button variant="outline" onClick={() => handleRecordPayment(true, true)} disabled={submitting}>
+                    <Printer className="h-4 w-4 mr-1" />
+                    Full Paid & Print
                   </Button>
                 </div>
               </div>
@@ -322,6 +439,7 @@ export const StudentPaymentDialog = ({
                         <TableHead>Date</TableHead>
                         <TableHead>Amount</TableHead>
                         <TableHead>Method</TableHead>
+                        <TableHead className="w-10"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -335,6 +453,16 @@ export const StudentPaymentDialog = ({
                           </TableCell>
                           <TableCell className="capitalize text-sm">
                             {t.payment_method}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => handlePrintTransaction(t)}
+                            >
+                              <Printer className="h-4 w-4" />
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))}

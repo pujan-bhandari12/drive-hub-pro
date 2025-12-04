@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { DollarSign, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { StudentPaymentDialog } from "@/components/StudentPaymentDialog";
 
@@ -60,6 +61,92 @@ const Transactions = () => {
     }
   };
 
+  const handlePrint = (e: React.MouseEvent, transaction: Transaction) => {
+    e.stopPropagation();
+    
+    const printWindow = window.open("", "_blank", "width=400,height=600");
+    if (!printWindow) return;
+
+    const receiptHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Payment Receipt</title>
+        <style>
+          body { font-family: 'Courier New', monospace; padding: 20px; max-width: 300px; margin: 0 auto; }
+          .header { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
+          .title { font-size: 18px; font-weight: bold; }
+          .subtitle { font-size: 12px; color: #666; }
+          .row { display: flex; justify-content: space-between; padding: 5px 0; }
+          .label { color: #666; }
+          .value { font-weight: bold; }
+          .divider { border-top: 1px dashed #ccc; margin: 10px 0; }
+          .total { font-size: 16px; font-weight: bold; }
+          .footer { text-align: center; margin-top: 20px; font-size: 11px; color: #666; }
+          @media print { body { padding: 0; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="title">DRIVING TRAINING CENTER</div>
+          <div class="subtitle">Payment Receipt</div>
+        </div>
+        
+        <div class="row">
+          <span class="label">Date:</span>
+          <span class="value">${new Date(transaction.transaction_date).toLocaleDateString()}</span>
+        </div>
+        <div class="row">
+          <span class="label">Time:</span>
+          <span class="value">${new Date(transaction.transaction_date).toLocaleTimeString()}</span>
+        </div>
+        
+        <div class="divider"></div>
+        
+        <div class="row">
+          <span class="label">Student:</span>
+          <span class="value">${transaction.students?.full_name || "N/A"}</span>
+        </div>
+        <div class="row">
+          <span class="label">Phone:</span>
+          <span class="value">${transaction.students?.phone || "N/A"}</span>
+        </div>
+        
+        <div class="divider"></div>
+        
+        <div class="row">
+          <span class="label">Payment Method:</span>
+          <span class="value">${transaction.payment_method.toUpperCase()}</span>
+        </div>
+        <div class="row">
+          <span class="label">Type:</span>
+          <span class="value">${transaction.payment_type.replace("_", " ")}</span>
+        </div>
+        
+        <div class="divider"></div>
+        
+        <div class="row total">
+          <span>Amount Paid:</span>
+          <span>NPR ${transaction.amount.toLocaleString()}</span>
+        </div>
+        
+        <div class="footer">
+          <p>Thank you for your payment!</p>
+          <p>--- ${new Date().toLocaleDateString()} ---</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(receiptHTML);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -78,12 +165,13 @@ const Transactions = () => {
                 <TableHead>Payment Method</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="w-10"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {transactions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12">
+                  <TableCell colSpan={7} className="text-center py-12">
                     <div className="flex flex-col items-center justify-center text-muted-foreground">
                       <DollarSign className="h-16 w-16 mb-4 opacity-30" />
                       <p className="text-lg font-medium mb-1">No transactions yet</p>
@@ -129,6 +217,16 @@ const Transactions = () => {
                       >
                         {transaction.status}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => handlePrint(e, transaction)}
+                      >
+                        <Printer className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
