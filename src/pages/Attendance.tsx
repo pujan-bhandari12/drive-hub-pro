@@ -216,25 +216,22 @@ const Attendance = () => {
                   {todayAttendance.map((record) => (
                     <div
                       key={record.id}
-                      className="flex items-center justify-between p-2 border rounded-md text-sm"
+                      className="flex items-center justify-between p-2 border rounded-md text-sm cursor-pointer hover:bg-accent transition-colors"
+                      onClick={() =>
+                        handleNameClick(record.student_id, record.students?.full_name || "Unknown")
+                      }
                     >
-                      <span
-                        className="font-medium cursor-pointer hover:text-primary hover:underline"
-                        onClick={() =>
-                          handleNameClick(record.student_id, record.students?.full_name || "Unknown")
-                        }
-                      >
-                        {record.students?.full_name}
-                      </span>
+                      <span className="font-medium">{record.students?.full_name}</span>
                       <div className="flex items-center gap-2">
                         <span className="text-muted-foreground">{record.lesson_time}</span>
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6 text-destructive hover:text-destructive"
-                          onClick={() =>
-                            handleDeleteAttendance(record.id, record.students?.full_name || "")
-                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteAttendance(record.id, record.students?.full_name || "");
+                          }}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
