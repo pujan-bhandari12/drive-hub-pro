@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "lucide-react";
+import { TodayAttendanceDialog } from "@/components/TodayAttendanceDialog";
 
 interface DueItem {
   id: string;
@@ -19,6 +20,7 @@ const Dashboard = () => {
     bikePayments: 0,
   });
   const [dueItems, setDueItems] = useState<DueItem[]>([]);
+  const [attendanceDialogOpen, setAttendanceDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchStats();
@@ -133,7 +135,10 @@ const Dashboard = () => {
               <p className="text-3xl font-bold">{stats.totalStudents}</p>
             </CardContent>
           </Card>
-          <Card className="border-t-4 border-t-blue-500">
+          <Card 
+            className="border-t-4 border-t-blue-500 cursor-pointer hover:bg-accent transition-colors"
+            onClick={() => setAttendanceDialogOpen(true)}
+          >
             <CardContent className="pt-4">
               <p className="text-sm text-muted-foreground">Today Attendance</p>
               <p className="text-3xl font-bold">{stats.todayAttendance}</p>
@@ -192,6 +197,11 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        <TodayAttendanceDialog
+          open={attendanceDialogOpen}
+          onOpenChange={setAttendanceDialogOpen}
+        />
       </div>
     </DashboardLayout>
   );
