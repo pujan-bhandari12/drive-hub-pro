@@ -7,6 +7,7 @@ import { Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { TypeaheadSearch } from "@/components/TypeaheadSearch";
+import { AttendanceStudentDialog } from "@/components/AttendanceStudentDialog";
 
 interface AttendanceRecord {
   id: string;
@@ -29,7 +30,14 @@ const Attendance = () => {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [searchValue, setSearchValue] = useState("");
   const [loading, setLoading] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogStudent, setDialogStudent] = useState<{ id: string; name: string } | null>(null);
   const { toast } = useToast();
+
+  const handleNameClick = (studentId: string, studentName: string) => {
+    setDialogStudent({ id: studentId, name: studentName });
+    setDialogOpen(true);
+  };
 
   useEffect(() => {
     fetchTodayAttendance();
@@ -178,7 +186,14 @@ const Attendance = () => {
                       key={record.id}
                       className="flex items-center justify-between p-2 border rounded-md text-sm"
                     >
-                      <span className="font-medium">{record.students?.full_name}</span>
+                      <span
+                        className="font-medium cursor-pointer hover:text-primary hover:underline"
+                        onClick={() =>
+                          handleNameClick(record.student_id, record.students?.full_name || "Unknown")
+                        }
+                      >
+                        {record.students?.full_name}
+                      </span>
                       <span className="text-muted-foreground">{record.lesson_time}</span>
                     </div>
                   ))}
@@ -187,6 +202,13 @@ const Attendance = () => {
             </CardContent>
           </Card>
         </div>
+
+        <AttendanceStudentDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          studentId={dialogStudent?.id || null}
+          studentName={dialogStudent?.name || ""}
+        />
       </div>
     </DashboardLayout>
   );
