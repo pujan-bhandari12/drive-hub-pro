@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar } from "lucide-react";
+import { Calendar, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { TypeaheadSearch } from "@/components/TypeaheadSearch";
@@ -87,6 +87,20 @@ const Attendance = () => {
       return;
     }
 
+    // Check if student already has attendance today
+    const alreadyCheckedIn = todayAttendance.some(
+      (record) => record.student_id === selectedStudent.id
+    );
+
+    if (alreadyCheckedIn) {
+      toast({
+        title: "Already checked in",
+        description: `${selectedStudent.full_name} has already been checked in today`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     const today = new Date().toISOString().split("T")[0];
     const currentTime = new Date().toTimeString().slice(0, 5);
@@ -117,6 +131,24 @@ const Attendance = () => {
       });
       setSearchValue("");
       setSelectedStudent(null);
+      fetchTodayAttendance();
+    }
+  };
+
+  const handleDeleteAttendance = async (id: string, studentName: string) => {
+    const { error } = await supabase.from("attendance").delete().eq("id", id);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Deleted",
+        description: `Attendance for ${studentName} removed`,
+      });
       fetchTodayAttendance();
     }
   };
@@ -194,7 +226,19 @@ const Attendance = () => {
                       >
                         {record.students?.full_name}
                       </span>
-                      <span className="text-muted-foreground">{record.lesson_time}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground">{record.lesson_time}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-destructive hover:text-destructive"
+                          onClick={() =>
+                            handleDeleteAttendance(record.id, record.students?.full_name || "")
+                          }
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
