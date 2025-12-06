@@ -19,6 +19,8 @@ const Dashboard = () => {
     todayAttendance: 0,
     carPayments: 0,
     bikePayments: 0,
+    monthlyCarPayments: 0,
+    monthlyBikePayments: 0,
   });
   const [dueItems, setDueItems] = useState<DueItem[]>([]);
   const [attendanceDialogOpen, setAttendanceDialogOpen] = useState(false);
@@ -58,27 +60,46 @@ const Dashboard = () => {
       // Fetch all completed transactions
       const { data: transactions } = await supabase
         .from("transactions")
-        .select("amount, student_id")
+        .select("amount, student_id, transaction_date")
         .eq("status", "completed");
+
+      // Get first day of current month
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
       let carPayments = 0;
       let bikePayments = 0;
+      let monthlyCarPayments = 0;
+      let monthlyBikePayments = 0;
 
       transactions?.forEach((t) => {
         const types = studentEnrollments[t.student_id] || [];
         const amount = parseFloat(t.amount.toString());
-        // If student has only one enrollment type, attribute to that
+        const isThisMonth = t.transaction_date && t.transaction_date >= firstDayOfMonth;
+
+        // Calculate amounts based on enrollment type
+        let carAmount = 0;
+        let bikeAmount = 0;
+
         if (types.length === 1) {
-          if (types[0] === "car") carPayments += amount;
-          else if (types[0] === "bike") bikePayments += amount;
+          if (types[0] === "car") carAmount = amount;
+          else if (types[0] === "bike") bikeAmount = amount;
         } else if (types.includes("car") && !types.includes("bike")) {
-          carPayments += amount;
+          carAmount = amount;
         } else if (types.includes("bike") && !types.includes("car")) {
-          bikePayments += amount;
+          bikeAmount = amount;
         } else {
           // Split evenly if both enrollments exist
-          carPayments += amount / 2;
-          bikePayments += amount / 2;
+          carAmount = amount / 2;
+          bikeAmount = amount / 2;
+        }
+
+        carPayments += carAmount;
+        bikePayments += bikeAmount;
+
+        if (isThisMonth) {
+          monthlyCarPayments += carAmount;
+          monthlyBikePayments += bikeAmount;
         }
       });
 
@@ -87,6 +108,8 @@ const Dashboard = () => {
         todayAttendance: todayAttendance || 0,
         carPayments,
         bikePayments,
+        monthlyCarPayments,
+        monthlyBikePayments,
       });
     } catch (error) {
       console.error("Error fetching stats:", error);
@@ -152,7 +175,7 @@ const Dashboard = () => {
         </div>
 
         {/* Bottom Cards Row */}
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {/* Due Soon Card */}
           <Card>
             <CardHeader className="pb-2">
@@ -184,10 +207,28 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Payments Card */}
+          {/* This Month Payments Card */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-base font-semibold">Payments</CardTitle>
+              <CardTitle className="text-base font-semibold">This Month</CardTitle>
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="border rounded-lg p-3 border-b-4 border-b-blue-500">
+                <p className="text-sm text-muted-foreground">Car</p>
+                <p className="text-xl font-bold text-emerald-500">NPR {stats.monthlyCarPayments.toLocaleString()}</p>
+              </div>
+              <div className="border rounded-lg p-3 border-b-4 border-b-blue-500">
+                <p className="text-sm text-muted-foreground">Motorcycle</p>
+                <p className="text-xl font-bold text-emerald-500">NPR {stats.monthlyBikePayments.toLocaleString()}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Total Payments Card */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-base font-semibold">Total Payments</CardTitle>
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent className="space-y-3">
