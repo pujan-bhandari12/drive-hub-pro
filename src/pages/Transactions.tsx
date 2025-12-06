@@ -16,6 +16,7 @@ interface Transaction {
   transaction_date: string;
   student_id: string;
   students: { full_name: string; phone: string } | null;
+  enrollmentType?: string;
 }
 
 const Transactions = () => {
@@ -43,9 +44,29 @@ const Transactions = () => {
         description: "Failed to fetch transactions",
         variant: "destructive",
       });
-    } else {
-      setTransactions(data || []);
+      return;
     }
+
+    // Fetch enrollments to get license types for each student
+    const studentIds = [...new Set(data?.map(t => t.student_id) || [])];
+    const { data: enrollments } = await supabase
+      .from("enrollments")
+      .select("student_id, license_type")
+      .in("student_id", studentIds);
+
+    // Map enrollment types to transactions
+    const transactionsWithType = (data || []).map(t => {
+      const studentEnrollments = enrollments?.filter(e => e.student_id === t.student_id) || [];
+      let enrollmentType = "Unknown";
+      if (studentEnrollments.length === 1) {
+        enrollmentType = studentEnrollments[0].license_type === "car" ? "Car" : "Motorcycle";
+      } else if (studentEnrollments.length > 1) {
+        enrollmentType = "Car & Motorcycle";
+      }
+      return { ...t, enrollmentType };
+    });
+
+    setTransactions(transactionsWithType);
   };
 
   const handleStudentClick = (transaction: Transaction) => {
@@ -117,8 +138,8 @@ const Transactions = () => {
           <span class="value">${transaction.payment_method.toUpperCase()}</span>
         </div>
         <div class="row">
-          <span class="label">Type:</span>
-          <span class="value">${transaction.payment_type.replace("_", " ")}</span>
+          <span class="label">Course:</span>
+          <span class="value">${transaction.enrollmentType || "N/A"}</span>
         </div>
         
         <div class="divider"></div>
@@ -192,7 +213,7 @@ const Transactions = () => {
                       PAY • {generateReceiptNumber(transaction, index)}
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      {transaction.students?.full_name} • {transaction.payment_type.replace("_", " ")} • {new Date(transaction.transaction_date).toLocaleDateString("en-US", {
+                      {transaction.students?.full_name} • {transaction.enrollmentType} • {new Date(transaction.transaction_date).toLocaleDateString("en-US", {
                         month: "numeric",
                         day: "numeric",
                         year: "numeric"
