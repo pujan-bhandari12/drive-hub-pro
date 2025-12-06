@@ -4,6 +4,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "lucide-react";
 import { TodayAttendanceDialog } from "@/components/TodayAttendanceDialog";
+import { StudentListDialog } from "@/components/StudentListDialog";
 
 interface DueItem {
   id: string;
@@ -21,6 +22,7 @@ const Dashboard = () => {
   });
   const [dueItems, setDueItems] = useState<DueItem[]>([]);
   const [attendanceDialogOpen, setAttendanceDialogOpen] = useState(false);
+  const [studentDialogOpen, setStudentDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchStats();
@@ -129,7 +131,10 @@ const Dashboard = () => {
 
         {/* Top Stats Row */}
         <div className="grid gap-4 md:grid-cols-2">
-          <Card className="border-t-4 border-t-blue-500">
+          <Card 
+            className="border-t-4 border-t-blue-500 cursor-pointer hover:bg-accent transition-colors"
+            onClick={() => setStudentDialogOpen(true)}
+          >
             <CardContent className="pt-4">
               <p className="text-sm text-muted-foreground">Students</p>
               <p className="text-3xl font-bold">{stats.totalStudents}</p>
@@ -201,6 +206,11 @@ const Dashboard = () => {
         <TodayAttendanceDialog
           open={attendanceDialogOpen}
           onOpenChange={setAttendanceDialogOpen}
+        />
+
+        <StudentListDialog
+          open={studentDialogOpen}
+          onOpenChange={setStudentDialogOpen}
         />
       </div>
     </DashboardLayout>
