@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { AttendanceStudentDialog } from "./AttendanceStudentDialog";
 import { Car, Bike } from "lucide-react";
+import { TypeaheadSearch } from "./TypeaheadSearch";
 
 interface TodayAttendanceDialogProps {
   open: boolean;
@@ -19,7 +20,7 @@ interface AttendanceRecord {
   student_id: string;
   lesson_type: string;
   lesson_time: string;
-  students: { full_name: string } | null;
+  students: { full_name: string; phone: string } | null;
 }
 
 export const TodayAttendanceDialog = ({
@@ -30,10 +31,12 @@ export const TodayAttendanceDialog = ({
   const [loading, setLoading] = useState(true);
   const [studentDialogOpen, setStudentDialogOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<{ id: string; name: string } | null>(null);
+  const [searchValue, setSearchValue] = useState("");
 
   useEffect(() => {
     if (open) {
       fetchTodayAttendance();
+      setSearchValue("");
     }
   }, [open]);
 
@@ -42,7 +45,7 @@ export const TodayAttendanceDialog = ({
     const today = new Date().toISOString().split("T")[0];
     const { data } = await supabase
       .from("attendance")
-      .select("id, student_id, lesson_type, lesson_time, students(full_name)")
+      .select("id, student_id, lesson_type, lesson_time, students(full_name, phone)")
       .eq("lesson_date", today)
       .order("lesson_time", { ascending: false });
 
@@ -50,12 +53,36 @@ export const TodayAttendanceDialog = ({
     setLoading(false);
   };
 
-  const bikeRecords = records.filter((r) => r.lesson_type === "bike");
-  const carRecords = records.filter((r) => r.lesson_type === "car");
+  const searchItems = useMemo(() => 
+    records.map(r => ({
+      id: r.id,
+      label: r.students?.full_name || "Unknown",
+      sublabel: r.students?.phone || ""
+    })), [records]
+  );
+
+  const filteredRecords = useMemo(() => {
+    if (!searchValue) return records;
+    const lower = searchValue.toLowerCase();
+    return records.filter(
+      r => r.students?.full_name?.toLowerCase().includes(lower) || 
+           r.students?.phone?.includes(searchValue)
+    );
+  }, [records, searchValue]);
+
+  const bikeRecords = filteredRecords.filter((r) => r.lesson_type === "bike");
+  const carRecords = filteredRecords.filter((r) => r.lesson_type === "car");
 
   const handleStudentClick = (studentId: string, studentName: string) => {
     setSelectedStudent({ id: studentId, name: studentName });
     setStudentDialogOpen(true);
+  };
+
+  const handleSearchSelect = (item: { id: string; label: string }) => {
+    const record = records.find(r => r.id === item.id);
+    if (record) {
+      handleStudentClick(record.student_id, record.students?.full_name || "Unknown");
+    }
   };
 
   const StudentItem = ({ record }: { record: AttendanceRecord }) => (
@@ -73,8 +100,16 @@ export const TodayAttendanceDialog = ({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Today's Attendance</DialogTitle>
+            <DialogTitle>Today's Attendance ({records.length})</DialogTitle>
           </DialogHeader>
+
+          <TypeaheadSearch
+            items={searchItems}
+            placeholder="Search by name or phone..."
+            value={searchValue}
+            onChange={setSearchValue}
+            onSelect={handleSearchSelect}
+          />
 
           {loading ? (
             <p className="text-sm text-muted-foreground">Loading...</p>
