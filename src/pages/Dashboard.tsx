@@ -292,9 +292,14 @@ const Dashboard = () => {
               {discountItems.length === 0 ? (
                 <p className="text-orange-500 bg-orange-50 px-3 py-1 rounded inline-block">No discounts</p>
               ) : (
-                <div className="space-y-2">
-                  {discountItems.map((item) => (
-                    <div key={item.id} className="flex justify-between items-center text-sm">
+                <div className="max-h-40 overflow-y-auto space-y-1">
+                  {discountItems.map((item, index) => (
+                    <div 
+                      key={item.id} 
+                      className={`flex justify-between items-center text-sm p-2 rounded-md transition-colors duration-200 hover:bg-orange-50 cursor-default ${
+                        index !== discountItems.length - 1 ? 'border-b border-border' : ''
+                      }`}
+                    >
                       <span>{item.student_name}</span>
                       <span className="font-semibold text-orange-500">NPR {item.amount.toLocaleString()}</span>
                     </div>
