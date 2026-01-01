@@ -132,16 +132,14 @@ const Dashboard = () => {
 
   const fetchDueItems = async () => {
     try {
-      const today = new Date();
       const twoDaysFromNow = new Date();
       twoDaysFromNow.setDate(twoDaysFromNow.getDate() + 2);
 
-      // Fetch active enrollments with end_date <= 2 days from now
+      // Fetch active enrollments with end_date <= 2 days from now (includes past due)
       const { data: enrollments } = await supabase
         .from("enrollments")
         .select("id, student_id, end_date, license_type, total_amount, status")
         .lte("end_date", twoDaysFromNow.toISOString().split("T")[0])
-        .gte("end_date", today.toISOString().split("T")[0])
         .eq("status", "active");
 
       if (!enrollments || enrollments.length === 0) {
