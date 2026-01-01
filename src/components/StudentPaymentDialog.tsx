@@ -86,9 +86,11 @@ export const StudentPaymentDialog = ({
 
     if (transData) {
       setTransactions(transData);
+      // Calculate actual payments (excluding discounts)
       const paid = transData
-        .filter((t) => t.status === "completed")
+        .filter((t) => t.status === "completed" && t.payment_type !== "discount")
         .reduce((sum, t) => sum + t.amount, 0);
+      // Calculate discounts separately
       const discounts = transData
         .filter((t) => t.payment_type === "discount")
         .reduce((sum, t) => sum + t.amount, 0);
@@ -126,7 +128,8 @@ export const StudentPaymentDialog = ({
   };
 
   const totalAmount = enrollments.reduce((sum, e) => sum + e.total_amount, 0);
-  const remaining = totalAmount - totalPaid;
+  // Remaining = Total - Paid - Discounts
+  const remaining = totalAmount - totalPaid - totalDiscount;
 
   const printReceipt = (amount: number, discount: number, method: string, date: string) => {
     const printWindow = window.open("", "_blank", "width=400,height=600");
@@ -334,13 +337,13 @@ export const StudentPaymentDialog = ({
             {/* Payments Summary */}
             <div>
               <h3 className="font-semibold mb-2">Payments</h3>
-              <p className="text-sm">
-                Total paid: <span className="font-bold">NPR {totalPaid.toLocaleString()}</span>
+              <div className="text-sm space-y-1">
+                <p>Total paid: <span className="font-bold">NPR {totalPaid.toLocaleString()}</span></p>
                 {totalDiscount > 0 && (
-                  <span className="text-primary ml-1">(Discounts NPR {totalDiscount.toLocaleString()})</span>
+                  <p>Discount given: <span className="font-bold text-orange-500">NPR {totalDiscount.toLocaleString()}</span></p>
                 )}
-                {" — "}Remaining: <span className="font-bold text-destructive">NPR {remaining.toLocaleString()}</span>
-              </p>
+                <p>Remaining: <span className="font-bold text-destructive">NPR {Math.max(0, remaining).toLocaleString()}</span></p>
+              </div>
             </div>
 
             {/* Payment Form */}
