@@ -58,10 +58,10 @@ const Dashboard = () => {
         studentEnrollments[e.student_id].push(e.license_type);
       });
 
-      // Fetch all completed transactions (excluding discounts for payments)
+      // Fetch all completed transactions
       const { data: transactions } = await supabase
         .from("transactions")
-        .select("amount, student_id, transaction_date, payment_type")
+        .select("amount, student_id, transaction_date, description")
         .eq("status", "completed");
 
       // Get first day of current month
@@ -77,8 +77,8 @@ const Dashboard = () => {
       transactions?.forEach((t) => {
         const amount = parseFloat(t.amount.toString());
         
-        // Handle discounts separately
-        if (t.payment_type === "discount") {
+        // Handle discounts separately (identified by description starting with "Discount:")
+        if (t.description?.startsWith("Discount:")) {
           totalDiscounts += amount;
           return;
         }

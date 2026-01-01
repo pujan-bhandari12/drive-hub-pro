@@ -88,11 +88,11 @@ export const StudentPaymentDialog = ({
       setTransactions(transData);
       // Calculate actual payments (excluding discounts)
       const paid = transData
-        .filter((t) => t.status === "completed" && t.payment_type !== "discount")
+        .filter((t) => t.status === "completed" && !t.description?.startsWith("Discount:"))
         .reduce((sum, t) => sum + t.amount, 0);
-      // Calculate discounts separately
+      // Calculate discounts separately (identified by description starting with "Discount:")
       const discounts = transData
-        .filter((t) => t.payment_type === "discount")
+        .filter((t) => t.description?.startsWith("Discount:"))
         .reduce((sum, t) => sum + t.amount, 0);
       setTotalPaid(paid);
       setTotalDiscount(discounts);
@@ -262,7 +262,7 @@ export const StudentPaymentDialog = ({
         student_id: studentId,
         amount: discount,
         payment_method: paymentForm.method,
-        payment_type: "discount",
+        payment_type: "other",
         status: "completed",
         description: `Discount: ${paymentForm.note || "Applied discount"}`,
       });
