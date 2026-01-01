@@ -132,30 +132,74 @@ const Dashboard = () => {
 
   const fetchDueItems = async () => {
     try {
+      const today = new Date();
       const twoDaysFromNow = new Date();
       twoDaysFromNow.setDate(twoDaysFromNow.getDate() + 2);
 
+      // Fetch active enrollments with end_date <= 2 days from now
       const { data: enrollments } = await supabase
         .from("enrollments")
-        .select("id, student_id, end_date, license_type, status")
+        .select("id, student_id, end_date, license_type, total_amount, status")
         .lte("end_date", twoDaysFromNow.toISOString().split("T")[0])
+        .gte("end_date", today.toISOString().split("T")[0])
         .eq("status", "active");
 
-      if (enrollments && enrollments.length > 0) {
-        const studentIds = enrollments.map((e) => e.student_id);
-        const { data: students } = await supabase
-          .from("students")
-          .select("id, full_name")
-          .in("id", studentIds);
-
-        const items: DueItem[] = enrollments.map((e) => ({
-          id: e.id,
-          student_name: students?.find((s) => s.id === e.student_id)?.full_name || "Unknown",
-          end_date: e.end_date || "",
-          license_type: e.license_type,
-        }));
-        setDueItems(items);
+      if (!enrollments || enrollments.length === 0) {
+        setDueItems([]);
+        return;
       }
+
+      const studentIds = [...new Set(enrollments.map((e) => e.student_id))];
+      
+      // Fetch students
+      const { data: students } = await supabase
+        .from("students")
+        .select("id, full_name")
+        .in("id", studentIds);
+
+      // Fetch all transactions for these students (excluding discounts)
+      const { data: transactions } = await supabase
+        .from("transactions")
+        .select("student_id, amount, description")
+        .in("student_id", studentIds)
+        .eq("status", "completed");
+
+      // Calculate total paid per student (excluding discounts)
+      const paidByStudent: Record<string, number> = {};
+      const discountsByStudent: Record<string, number> = {};
+      
+      transactions?.forEach((t) => {
+        const amount = parseFloat(t.amount.toString());
+        if (t.description?.startsWith("Discount:")) {
+          discountsByStudent[t.student_id] = (discountsByStudent[t.student_id] || 0) + amount;
+        } else {
+          paidByStudent[t.student_id] = (paidByStudent[t.student_id] || 0) + amount;
+        }
+      });
+
+      // Calculate total enrollment amount per student
+      const totalAmountByStudent: Record<string, number> = {};
+      enrollments.forEach((e) => {
+        totalAmountByStudent[e.student_id] = (totalAmountByStudent[e.student_id] || 0) + e.total_amount;
+      });
+
+      // Filter enrollments where student has unpaid balance
+      const unpaidEnrollments = enrollments.filter((e) => {
+        const totalAmount = totalAmountByStudent[e.student_id] || 0;
+        const totalPaid = paidByStudent[e.student_id] || 0;
+        const totalDiscount = discountsByStudent[e.student_id] || 0;
+        const remaining = totalAmount - totalPaid - totalDiscount;
+        return remaining > 0;
+      });
+
+      const items: DueItem[] = unpaidEnrollments.map((e) => ({
+        id: e.id,
+        student_name: students?.find((s) => s.id === e.student_id)?.full_name || "Unknown",
+        end_date: e.end_date || "",
+        license_type: e.license_type,
+      }));
+      
+      setDueItems(items);
     } catch (error) {
       console.error("Error fetching due items:", error);
     }
