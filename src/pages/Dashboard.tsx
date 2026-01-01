@@ -13,6 +13,12 @@ interface DueItem {
   license_type: string;
 }
 
+interface DiscountItem {
+  id: string;
+  student_name: string;
+  amount: number;
+}
+
 const Dashboard = () => {
   const [stats, setStats] = useState({
     totalStudents: 0,
@@ -21,15 +27,16 @@ const Dashboard = () => {
     bikePayments: 0,
     monthlyCarPayments: 0,
     monthlyBikePayments: 0,
-    totalDiscounts: 0,
   });
   const [dueItems, setDueItems] = useState<DueItem[]>([]);
+  const [discountItems, setDiscountItems] = useState<DiscountItem[]>([]);
   const [attendanceDialogOpen, setAttendanceDialogOpen] = useState(false);
   const [studentDialogOpen, setStudentDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchStats();
     fetchDueItems();
+    fetchDiscounts();
   }, []);
 
   const fetchStats = async () => {
@@ -72,14 +79,12 @@ const Dashboard = () => {
       let bikePayments = 0;
       let monthlyCarPayments = 0;
       let monthlyBikePayments = 0;
-      let totalDiscounts = 0;
 
       transactions?.forEach((t) => {
         const amount = parseFloat(t.amount.toString());
         
-        // Handle discounts separately (identified by description starting with "Discount:")
+        // Skip discounts from payment calculations
         if (t.description?.startsWith("Discount:")) {
-          totalDiscounts += amount;
           return;
         }
 
@@ -119,7 +124,6 @@ const Dashboard = () => {
         bikePayments,
         monthlyCarPayments,
         monthlyBikePayments,
-        totalDiscounts,
       });
     } catch (error) {
       console.error("Error fetching stats:", error);
@@ -154,6 +158,36 @@ const Dashboard = () => {
       }
     } catch (error) {
       console.error("Error fetching due items:", error);
+    }
+  };
+
+  const fetchDiscounts = async () => {
+    try {
+      const { data: transactions } = await supabase
+        .from("transactions")
+        .select("id, amount, student_id, description")
+        .eq("status", "completed");
+
+      const discountTransactions = transactions?.filter(t => t.description?.startsWith("Discount:")) || [];
+      
+      if (discountTransactions.length > 0) {
+        const studentIds = [...new Set(discountTransactions.map(t => t.student_id))];
+        const { data: students } = await supabase
+          .from("students")
+          .select("id, full_name")
+          .in("id", studentIds);
+
+        const items: DiscountItem[] = discountTransactions.map(t => ({
+          id: t.id,
+          student_name: students?.find(s => s.id === t.student_id)?.full_name || "Unknown",
+          amount: parseFloat(t.amount.toString()),
+        }));
+        setDiscountItems(items);
+      } else {
+        setDiscountItems([]);
+      }
+    } catch (error) {
+      console.error("Error fetching discounts:", error);
     }
   };
 
@@ -213,10 +247,17 @@ const Dashboard = () => {
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {stats.totalDiscounts > 0 ? (
-                <p className="text-xl font-bold text-orange-500">NPR {stats.totalDiscounts.toLocaleString()}</p>
-              ) : (
+              {discountItems.length === 0 ? (
                 <p className="text-orange-500 bg-orange-50 px-3 py-1 rounded inline-block">No discounts</p>
+              ) : (
+                <div className="space-y-2">
+                  {discountItems.map((item) => (
+                    <div key={item.id} className="flex justify-between items-center text-sm">
+                      <span>{item.student_name}</span>
+                      <span className="font-semibold text-orange-500">NPR {item.amount.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
               )}
             </CardContent>
           </Card>

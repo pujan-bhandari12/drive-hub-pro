@@ -54,17 +54,19 @@ const Transactions = () => {
       .select("student_id, license_type")
       .in("student_id", studentIds);
 
-    // Map enrollment types to transactions
-    const transactionsWithType = (data || []).map(t => {
-      const studentEnrollments = enrollments?.filter(e => e.student_id === t.student_id) || [];
-      let enrollmentType = "Unknown";
-      if (studentEnrollments.length === 1) {
-        enrollmentType = studentEnrollments[0].license_type === "car" ? "Car" : "Motorcycle";
-      } else if (studentEnrollments.length > 1) {
-        enrollmentType = "Car & Motorcycle";
-      }
-      return { ...t, enrollmentType };
-    });
+    // Map enrollment types to transactions and filter out discounts
+    const transactionsWithType = (data || [])
+      .filter(t => !t.description?.startsWith("Discount:"))
+      .map(t => {
+        const studentEnrollments = enrollments?.filter(e => e.student_id === t.student_id) || [];
+        let enrollmentType = "Unknown";
+        if (studentEnrollments.length === 1) {
+          enrollmentType = studentEnrollments[0].license_type === "car" ? "Car" : "Motorcycle";
+        } else if (studentEnrollments.length > 1) {
+          enrollmentType = "Car & Motorcycle";
+        }
+        return { ...t, enrollmentType };
+      });
 
     setTransactions(transactionsWithType);
   };
