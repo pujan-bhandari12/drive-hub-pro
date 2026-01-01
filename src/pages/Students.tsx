@@ -58,6 +58,10 @@ const PRICING = {
   },
 };
 
+const capitalizeWords = (str: string) => {
+  return str.replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
 const Students = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [enrollments, setEnrollments] = useState<Record<string, Enrollment[]>>({});
@@ -131,7 +135,7 @@ const Students = () => {
     const { data: studentData, error: studentError } = await supabase
       .from("students")
       .insert([{ 
-        full_name: formData.full_name, 
+        full_name: capitalizeWords(formData.full_name.trim()), 
         phone: formData.phone,
         status: "active"
       }])
