@@ -258,7 +258,7 @@ export const StudentPaymentDialog = ({
       transactionsToInsert.push({
         student_id: studentId,
         amount: discount,
-        payment_method: "discount",
+        payment_method: paymentForm.method,
         payment_type: "discount",
         status: "completed",
         description: `Discount: ${paymentForm.note || "Applied discount"}`,
