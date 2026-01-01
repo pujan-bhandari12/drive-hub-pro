@@ -21,6 +21,7 @@ const Dashboard = () => {
     bikePayments: 0,
     monthlyCarPayments: 0,
     monthlyBikePayments: 0,
+    totalDiscounts: 0,
   });
   const [dueItems, setDueItems] = useState<DueItem[]>([]);
   const [attendanceDialogOpen, setAttendanceDialogOpen] = useState(false);
@@ -57,10 +58,10 @@ const Dashboard = () => {
         studentEnrollments[e.student_id].push(e.license_type);
       });
 
-      // Fetch all completed transactions
+      // Fetch all completed transactions (excluding discounts for payments)
       const { data: transactions } = await supabase
         .from("transactions")
-        .select("amount, student_id, transaction_date")
+        .select("amount, student_id, transaction_date, payment_type")
         .eq("status", "completed");
 
       // Get first day of current month
@@ -71,10 +72,18 @@ const Dashboard = () => {
       let bikePayments = 0;
       let monthlyCarPayments = 0;
       let monthlyBikePayments = 0;
+      let totalDiscounts = 0;
 
       transactions?.forEach((t) => {
-        const types = studentEnrollments[t.student_id] || [];
         const amount = parseFloat(t.amount.toString());
+        
+        // Handle discounts separately
+        if (t.payment_type === "discount") {
+          totalDiscounts += amount;
+          return;
+        }
+
+        const types = studentEnrollments[t.student_id] || [];
         const isThisMonth = t.transaction_date && t.transaction_date >= firstDayOfMonth;
 
         // Calculate amounts based on enrollment type
@@ -110,6 +119,7 @@ const Dashboard = () => {
         bikePayments,
         monthlyCarPayments,
         monthlyBikePayments,
+        totalDiscounts,
       });
     } catch (error) {
       console.error("Error fetching stats:", error);
@@ -203,7 +213,11 @@ const Dashboard = () => {
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <p className="text-orange-500 bg-orange-50 px-3 py-1 rounded inline-block">No discounts</p>
+              {stats.totalDiscounts > 0 ? (
+                <p className="text-xl font-bold text-orange-500">NPR {stats.totalDiscounts.toLocaleString()}</p>
+              ) : (
+                <p className="text-orange-500 bg-orange-50 px-3 py-1 rounded inline-block">No discounts</p>
+              )}
             </CardContent>
           </Card>
 
