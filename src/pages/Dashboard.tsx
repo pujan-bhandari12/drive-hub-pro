@@ -17,9 +17,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+
 interface DueItem {
   id: string;
+  student_id: string;
   student_name: string;
+  phone: string;
   end_date: string;
   license_type: string;
 }
@@ -49,6 +52,8 @@ const Dashboard = () => {
   const [selectedStudent, setSelectedStudent] = useState<{ id: string; full_name: string; phone: string } | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [discountToDelete, setDiscountToDelete] = useState<DiscountItem | null>(null);
+  const [dueItemToDelete, setDueItemToDelete] = useState<DueItem | null>(null);
+  const [deleteType, setDeleteType] = useState<'discount' | 'due' | null>(null);
 
   useEffect(() => {
     fetchStats();
@@ -169,7 +174,7 @@ const Dashboard = () => {
       // Fetch students
       const { data: students } = await supabase
         .from("students")
-        .select("id, full_name")
+        .select("id, full_name, phone")
         .in("id", studentIds);
 
       // Fetch all transactions for these students (excluding discounts)
@@ -207,12 +212,17 @@ const Dashboard = () => {
         return remaining > 0;
       });
 
-      const items: DueItem[] = unpaidEnrollments.map((e) => ({
-        id: e.id,
-        student_name: students?.find((s) => s.id === e.student_id)?.full_name || "Unknown",
-        end_date: e.end_date || "",
-        license_type: e.license_type,
-      }));
+      const items: DueItem[] = unpaidEnrollments.map((e) => {
+        const student = students?.find((s) => s.id === e.student_id);
+        return {
+          id: e.id,
+          student_id: e.student_id,
+          student_name: student?.full_name || "Unknown",
+          phone: student?.phone || "",
+          end_date: e.end_date || "",
+          license_type: e.license_type,
+        };
+      });
       
       setDueItems(items);
     } catch (error) {
@@ -264,35 +274,69 @@ const Dashboard = () => {
     setPaymentDialogOpen(true);
   };
 
-  const handleDeleteDiscount = async () => {
-    if (!discountToDelete) return;
-    
-    try {
-      const { error } = await supabase
-        .from("transactions")
-        .delete()
-        .eq("id", discountToDelete.id);
+  const handleDueItemClick = (item: DueItem) => {
+    setSelectedStudent({
+      id: item.student_id,
+      full_name: item.student_name,
+      phone: item.phone,
+    });
+    setPaymentDialogOpen(true);
+  };
 
-      if (error) throw error;
+  const handleDelete = async () => {
+    if (deleteType === 'discount' && discountToDelete) {
+      try {
+        const { error } = await supabase
+          .from("transactions")
+          .delete()
+          .eq("id", discountToDelete.id);
 
-      toast({
-        title: "Discount deleted",
-        description: `Discount for ${discountToDelete.student_name} has been removed.`,
-      });
-      
-      fetchDiscounts();
-      fetchStats();
-    } catch (error) {
-      console.error("Error deleting discount:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete discount.",
-        variant: "destructive",
-      });
-    } finally {
-      setDeleteDialogOpen(false);
-      setDiscountToDelete(null);
+        if (error) throw error;
+
+        toast({
+          title: "Discount deleted",
+          description: `Discount for ${discountToDelete.student_name} has been removed.`,
+        });
+        
+        fetchDiscounts();
+        fetchStats();
+      } catch (error) {
+        console.error("Error deleting discount:", error);
+        toast({
+          title: "Error",
+          description: "Failed to delete discount.",
+          variant: "destructive",
+        });
+      }
+    } else if (deleteType === 'due' && dueItemToDelete) {
+      try {
+        const { error } = await supabase
+          .from("enrollments")
+          .delete()
+          .eq("id", dueItemToDelete.id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Enrollment deleted",
+          description: `Enrollment for ${dueItemToDelete.student_name} has been removed.`,
+        });
+        
+        fetchDueItems();
+      } catch (error) {
+        console.error("Error deleting enrollment:", error);
+        toast({
+          title: "Error",
+          description: "Failed to delete enrollment.",
+          variant: "destructive",
+        });
+      }
     }
+    
+    setDeleteDialogOpen(false);
+    setDiscountToDelete(null);
+    setDueItemToDelete(null);
+    setDeleteType(null);
   };
 
   return (
@@ -333,11 +377,35 @@ const Dashboard = () => {
               {dueItems.length === 0 ? (
                 <p className="text-destructive">No due items</p>
               ) : (
-                <div className="space-y-2">
-                  {dueItems.map((item) => (
-                    <p key={item.id} className="text-sm">
-                      {item.student_name} - {item.license_type} ({item.end_date})
-                    </p>
+                <div className="max-h-40 overflow-y-auto space-y-1">
+                  {dueItems.map((item, index) => (
+                    <div 
+                      key={item.id} 
+                      className={`flex justify-between items-center text-sm p-2 rounded-md transition-colors duration-200 hover:bg-red-50 group ${
+                        index !== dueItems.length - 1 ? 'border-b border-border' : ''
+                      }`}
+                    >
+                      <span 
+                        className="cursor-pointer hover:underline"
+                        onClick={() => handleDueItemClick(item)}
+                      >
+                        {item.student_name}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground text-xs">{item.license_type} ({item.end_date})</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDueItemToDelete(item);
+                            setDeleteType('due');
+                            setDeleteDialogOpen(true);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 rounded"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </button>
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
@@ -374,6 +442,7 @@ const Dashboard = () => {
                           onClick={(e) => {
                             e.stopPropagation();
                             setDiscountToDelete(item);
+                            setDeleteType('discount');
                             setDeleteDialogOpen(true);
                           }}
                           className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 rounded"
@@ -448,14 +517,19 @@ const Dashboard = () => {
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete Discount</AlertDialogTitle>
+              <AlertDialogTitle>
+                {deleteType === 'discount' ? 'Delete Discount' : 'Delete Enrollment'}
+              </AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to delete the discount of NPR {discountToDelete?.amount.toLocaleString()} for {discountToDelete?.student_name}? This action cannot be undone.
+                {deleteType === 'discount' 
+                  ? `Are you sure you want to delete the discount of NPR ${discountToDelete?.amount.toLocaleString()} for ${discountToDelete?.student_name}? This action cannot be undone.`
+                  : `Are you sure you want to delete the enrollment for ${dueItemToDelete?.student_name} (${dueItemToDelete?.license_type})? This action cannot be undone.`
+                }
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteDiscount} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                 Delete
               </AlertDialogAction>
             </AlertDialogFooter>
