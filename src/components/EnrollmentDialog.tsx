@@ -67,6 +67,11 @@ export const EnrollmentDialog = ({
 
     setLoading(true);
     const price = PRICING[formData.license_type][parseInt(formData.payment_plan) as 1 | 7 | 15 | 30];
+    
+    // Calculate end_date based on payment_plan days
+    const startDate = new Date();
+    const endDate = new Date();
+    endDate.setDate(startDate.getDate() + parseInt(formData.payment_plan));
 
     const { error } = await supabase.from("enrollments").insert([
       {
@@ -74,6 +79,8 @@ export const EnrollmentDialog = ({
         license_type: formData.license_type === "motorcycle" ? "bike" : "car",
         payment_plan: parseInt(formData.payment_plan),
         total_amount: price,
+        start_date: startDate.toISOString().split("T")[0],
+        end_date: endDate.toISOString().split("T")[0],
       },
     ]);
 
