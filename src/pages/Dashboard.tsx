@@ -2,10 +2,21 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar } from "lucide-react";
+import { Calendar, Trash2 } from "lucide-react";
 import { TodayAttendanceDialog } from "@/components/TodayAttendanceDialog";
 import { StudentListDialog } from "@/components/StudentListDialog";
-
+import { StudentPaymentDialog } from "@/components/StudentPaymentDialog";
+import { toast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 interface DueItem {
   id: string;
   student_name: string;
@@ -15,7 +26,9 @@ interface DueItem {
 
 interface DiscountItem {
   id: string;
+  student_id: string;
   student_name: string;
+  phone: string;
   amount: number;
 }
 
@@ -32,6 +45,10 @@ const Dashboard = () => {
   const [discountItems, setDiscountItems] = useState<DiscountItem[]>([]);
   const [attendanceDialogOpen, setAttendanceDialogOpen] = useState(false);
   const [studentDialogOpen, setStudentDialogOpen] = useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<{ id: string; full_name: string; phone: string } | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [discountToDelete, setDiscountToDelete] = useState<DiscountItem | null>(null);
 
   useEffect(() => {
     fetchStats();
@@ -216,20 +233,65 @@ const Dashboard = () => {
         const studentIds = [...new Set(discountTransactions.map(t => t.student_id))];
         const { data: students } = await supabase
           .from("students")
-          .select("id, full_name")
+          .select("id, full_name, phone")
           .in("id", studentIds);
 
-        const items: DiscountItem[] = discountTransactions.map(t => ({
-          id: t.id,
-          student_name: students?.find(s => s.id === t.student_id)?.full_name || "Unknown",
-          amount: parseFloat(t.amount.toString()),
-        }));
+        const items: DiscountItem[] = discountTransactions.map(t => {
+          const student = students?.find(s => s.id === t.student_id);
+          return {
+            id: t.id,
+            student_id: t.student_id,
+            student_name: student?.full_name || "Unknown",
+            phone: student?.phone || "",
+            amount: parseFloat(t.amount.toString()),
+          };
+        });
         setDiscountItems(items);
       } else {
         setDiscountItems([]);
       }
     } catch (error) {
       console.error("Error fetching discounts:", error);
+    }
+  };
+
+  const handleDiscountClick = (item: DiscountItem) => {
+    setSelectedStudent({
+      id: item.student_id,
+      full_name: item.student_name,
+      phone: item.phone,
+    });
+    setPaymentDialogOpen(true);
+  };
+
+  const handleDeleteDiscount = async () => {
+    if (!discountToDelete) return;
+    
+    try {
+      const { error } = await supabase
+        .from("transactions")
+        .delete()
+        .eq("id", discountToDelete.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Discount deleted",
+        description: `Discount for ${discountToDelete.student_name} has been removed.`,
+      });
+      
+      fetchDiscounts();
+      fetchStats();
+    } catch (error) {
+      console.error("Error deleting discount:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete discount.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteDialogOpen(false);
+      setDiscountToDelete(null);
     }
   };
 
@@ -296,12 +358,29 @@ const Dashboard = () => {
                   {discountItems.map((item, index) => (
                     <div 
                       key={item.id} 
-                      className={`flex justify-between items-center text-sm p-2 rounded-md transition-colors duration-200 hover:bg-orange-50 cursor-default ${
+                      className={`flex justify-between items-center text-sm p-2 rounded-md transition-colors duration-200 hover:bg-orange-50 group ${
                         index !== discountItems.length - 1 ? 'border-b border-border' : ''
                       }`}
                     >
-                      <span>{item.student_name}</span>
-                      <span className="font-semibold text-orange-500">NPR {item.amount.toLocaleString()}</span>
+                      <span 
+                        className="cursor-pointer hover:underline"
+                        onClick={() => handleDiscountClick(item)}
+                      >
+                        {item.student_name}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-orange-500">NPR {item.amount.toLocaleString()}</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDiscountToDelete(item);
+                            setDeleteDialogOpen(true);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 rounded"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -355,6 +434,33 @@ const Dashboard = () => {
           open={studentDialogOpen}
           onOpenChange={setStudentDialogOpen}
         />
+
+        {selectedStudent && (
+          <StudentPaymentDialog
+            studentId={selectedStudent.id}
+            studentName={selectedStudent.full_name}
+            studentPhone={selectedStudent.phone}
+            open={paymentDialogOpen}
+            onOpenChange={setPaymentDialogOpen}
+          />
+        )}
+
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Discount</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete the discount of NPR {discountToDelete?.amount.toLocaleString()} for {discountToDelete?.student_name}? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteDiscount} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );
