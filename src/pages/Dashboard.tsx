@@ -155,14 +155,15 @@ const Dashboard = () => {
 
   const fetchDueItems = async () => {
     try {
+      const today = new Date();
       const twoDaysFromNow = new Date();
-      twoDaysFromNow.setDate(twoDaysFromNow.getDate() + 2);
+      twoDaysFromNow.setDate(today.getDate() + 2);
+      const twoDaysFromNowStr = twoDaysFromNow.toISOString().split("T")[0];
 
-      // Fetch active enrollments with end_date <= 2 days from now (includes past due)
+      // Fetch all active enrollments (we'll filter by end_date in code to handle nulls)
       const { data: enrollments } = await supabase
         .from("enrollments")
         .select("id, student_id, end_date, license_type, total_amount, status")
-        .lte("end_date", twoDaysFromNow.toISOString().split("T")[0])
         .eq("status", "active");
 
       if (!enrollments || enrollments.length === 0) {
@@ -170,7 +171,18 @@ const Dashboard = () => {
         return;
       }
 
-      const studentIds = [...new Set(enrollments.map((e) => e.student_id))];
+      // Filter enrollments where end_date is null OR end_date <= 2 days from now
+      const dueSoonEnrollments = enrollments.filter((e) => {
+        if (!e.end_date) return true; // Include null end_dates (not set yet)
+        return e.end_date <= twoDaysFromNowStr;
+      });
+
+      if (dueSoonEnrollments.length === 0) {
+        setDueItems([]);
+        return;
+      }
+
+      const studentIds = [...new Set(dueSoonEnrollments.map((e) => e.student_id))];
       
       // Fetch students
       const { data: students } = await supabase
@@ -178,7 +190,7 @@ const Dashboard = () => {
         .select("id, full_name, phone")
         .in("id", studentIds);
 
-      // Fetch all transactions for these students (excluding discounts)
+      // Fetch all transactions for these students
       const { data: transactions } = await supabase
         .from("transactions")
         .select("student_id, amount, description")
@@ -200,12 +212,12 @@ const Dashboard = () => {
 
       // Calculate total enrollment amount per student
       const totalAmountByStudent: Record<string, number> = {};
-      enrollments.forEach((e) => {
+      dueSoonEnrollments.forEach((e) => {
         totalAmountByStudent[e.student_id] = (totalAmountByStudent[e.student_id] || 0) + e.total_amount;
       });
 
       // Filter enrollments where student has unpaid balance
-      const unpaidEnrollments = enrollments.filter((e) => {
+      const unpaidEnrollments = dueSoonEnrollments.filter((e) => {
         const totalAmount = totalAmountByStudent[e.student_id] || 0;
         const totalPaid = paidByStudent[e.student_id] || 0;
         const totalDiscount = discountsByStudent[e.student_id] || 0;
