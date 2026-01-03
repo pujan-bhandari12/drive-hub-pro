@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -205,7 +206,10 @@ const Attendance = () => {
           {/* Today's Attendance Card */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="text-xl font-semibold">Today's Attendance</CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-xl font-semibold">Today's Attendance</CardTitle>
+                <Badge variant="secondary" className="text-sm">{todayAttendance.length}</Badge>
+              </div>
               <Calendar className="h-5 w-5 text-muted-foreground" />
             </CardHeader>
             <CardContent>
