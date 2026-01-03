@@ -212,7 +212,7 @@ const Attendance = () => {
               {todayAttendance.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No attendance records for today</p>
               ) : (
-                <div className="space-y-2">
+                <div className="max-h-80 overflow-y-auto space-y-2 scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent">
                   {todayAttendance.map((record) => (
                     <div
                       key={record.id}
