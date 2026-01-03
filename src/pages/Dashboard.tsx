@@ -25,6 +25,7 @@ interface DueItem {
   phone: string;
   end_date: string;
   license_type: string;
+  remaining_amount: number;
 }
 
 interface DiscountItem {
@@ -214,6 +215,11 @@ const Dashboard = () => {
 
       const items: DueItem[] = unpaidEnrollments.map((e) => {
         const student = students?.find((s) => s.id === e.student_id);
+        const totalAmount = totalAmountByStudent[e.student_id] || 0;
+        const totalPaid = paidByStudent[e.student_id] || 0;
+        const totalDiscount = discountsByStudent[e.student_id] || 0;
+        const remaining = totalAmount - totalPaid - totalDiscount;
+        
         return {
           id: e.id,
           student_id: e.student_id,
@@ -221,6 +227,7 @@ const Dashboard = () => {
           phone: student?.phone || "",
           end_date: e.end_date || "",
           license_type: e.license_type,
+          remaining_amount: remaining,
         };
       });
       
@@ -392,7 +399,10 @@ const Dashboard = () => {
                         {item.student_name}
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground text-xs">{item.license_type} ({item.end_date})</span>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="font-semibold text-destructive">NPR {item.remaining_amount.toLocaleString()}</span>
+                          <span className="text-muted-foreground text-xs">{item.license_type} ({item.end_date})</span>
+                        </div>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
