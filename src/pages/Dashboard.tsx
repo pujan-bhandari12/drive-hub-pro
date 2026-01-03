@@ -388,33 +388,15 @@ const Dashboard = () => {
                   {dueItems.map((item, index) => (
                     <div 
                       key={item.id} 
-                      className={`flex justify-between items-center text-sm p-2 rounded-md transition-colors duration-200 hover:bg-red-50 group ${
+                      className={`flex justify-between items-center text-sm p-2 rounded-md transition-colors duration-200 hover:bg-red-50 cursor-pointer ${
                         index !== dueItems.length - 1 ? 'border-b border-border' : ''
                       }`}
+                      onClick={() => handleDueItemClick(item)}
                     >
-                      <span 
-                        className="cursor-pointer hover:underline"
-                        onClick={() => handleDueItemClick(item)}
-                      >
+                      <span className="hover:underline">
                         {item.student_name}
                       </span>
-                      <div className="flex items-center gap-2">
-                        <div className="flex flex-col items-end gap-1">
-                          <span className="font-semibold text-destructive">NPR {item.remaining_amount.toLocaleString()}</span>
-                          <span className="text-muted-foreground text-xs">{item.license_type} ({item.end_date})</span>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDueItemToDelete(item);
-                            setDeleteType('due');
-                            setDeleteDialogOpen(true);
-                          }}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 rounded"
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </button>
-                      </div>
+                      <span className="font-semibold text-destructive">NPR {item.remaining_amount.toLocaleString()}</span>
                     </div>
                   ))}
                 </div>
