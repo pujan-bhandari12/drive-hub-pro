@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { usePricing } from "@/contexts/PricingContext";
 
 interface EnrollmentDialogProps {
   open: boolean;
@@ -25,21 +26,6 @@ interface EnrollmentDialogProps {
   studentName: string;
   onSuccess?: () => void;
 }
-
-const PRICING = {
-  motorcycle: {
-    1: 500,
-    7: 3000,
-    15: 5500,
-    30: 10000,
-  },
-  car: {
-    1: 800,
-    7: 5000,
-    15: 9000,
-    30: 16000,
-  },
-};
 
 export const EnrollmentDialog = ({
   open,
@@ -50,23 +36,25 @@ export const EnrollmentDialog = ({
 }: EnrollmentDialogProps) => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { pricing } = usePricing();
   const [formData, setFormData] = useState({
     license_type: "" as "" | "motorcycle" | "car",
+    session_time: "" as "" | "30min" | "1hr",
     payment_plan: "" as "" | "1" | "7" | "15" | "30",
   });
 
   useEffect(() => {
     if (!open) {
-      setFormData({ license_type: "", payment_plan: "" });
+      setFormData({ license_type: "", session_time: "", payment_plan: "" });
     }
   }, [open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.license_type || !formData.payment_plan) return;
+    if (!formData.license_type || !formData.session_time || !formData.payment_plan) return;
 
     setLoading(true);
-    const price = PRICING[formData.license_type][parseInt(formData.payment_plan) as 1 | 7 | 15 | 30];
+    const price = pricing[formData.license_type][formData.session_time][parseInt(formData.payment_plan) as 1 | 7 | 15 | 30];
     
     // Calculate end_date based on payment_plan days
     const startDate = new Date();
@@ -108,7 +96,7 @@ export const EnrollmentDialog = ({
         <DialogHeader>
           <DialogTitle>Add Enrollment for {studentName}</DialogTitle>
           <DialogDescription>
-            Select course type and duration with pricing
+            Select course type, session duration and pricing
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -117,7 +105,7 @@ export const EnrollmentDialog = ({
             <Select
               value={formData.license_type}
               onValueChange={(value: "motorcycle" | "car") =>
-                setFormData({ ...formData, license_type: value, payment_plan: "" })
+                setFormData({ ...formData, license_type: value, session_time: "", payment_plan: "" })
               }
             >
               <SelectTrigger>
@@ -131,6 +119,25 @@ export const EnrollmentDialog = ({
           </div>
           {formData.license_type && (
             <div className="space-y-2">
+              <Label>Session Duration *</Label>
+              <Select
+                value={formData.session_time}
+                onValueChange={(value: "30min" | "1hr") =>
+                  setFormData({ ...formData, session_time: value, payment_plan: "" })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select session time" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="30min">30 Minutes</SelectItem>
+                  <SelectItem value="1hr">1 Hour</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {formData.license_type && formData.session_time && (
+            <div className="space-y-2">
               <Label>Duration & Price *</Label>
               <Select
                 value={formData.payment_plan}
@@ -142,19 +149,19 @@ export const EnrollmentDialog = ({
                   <SelectValue placeholder="Select duration" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">1 Day - NPR {PRICING[formData.license_type][1].toLocaleString()}</SelectItem>
-                  <SelectItem value="7">7 Days - NPR {PRICING[formData.license_type][7].toLocaleString()}</SelectItem>
-                  <SelectItem value="15">15 Days - NPR {PRICING[formData.license_type][15].toLocaleString()}</SelectItem>
-                  <SelectItem value="30">30 Days - NPR {PRICING[formData.license_type][30].toLocaleString()}</SelectItem>
+                  <SelectItem value="1">1 Day - NPR {pricing[formData.license_type][formData.session_time][1].toLocaleString()}</SelectItem>
+                  <SelectItem value="7">7 Days - NPR {pricing[formData.license_type][formData.session_time][7].toLocaleString()}</SelectItem>
+                  <SelectItem value="15">15 Days - NPR {pricing[formData.license_type][formData.session_time][15].toLocaleString()}</SelectItem>
+                  <SelectItem value="30">30 Days - NPR {pricing[formData.license_type][formData.session_time][30].toLocaleString()}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           )}
-          {formData.license_type && formData.payment_plan && (
+          {formData.license_type && formData.session_time && formData.payment_plan && (
             <div className="p-3 bg-muted rounded-md">
               <p className="text-sm text-muted-foreground">Total Amount</p>
               <p className="text-xl font-bold text-primary">
-                NPR {PRICING[formData.license_type][parseInt(formData.payment_plan) as 1 | 7 | 15 | 30].toLocaleString()}
+                NPR {pricing[formData.license_type][formData.session_time][parseInt(formData.payment_plan) as 1 | 7 | 15 | 30].toLocaleString()}
               </p>
             </div>
           )}
@@ -166,7 +173,7 @@ export const EnrollmentDialog = ({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading || !formData.license_type || !formData.payment_plan}>
+            <Button type="submit" disabled={loading || !formData.license_type || !formData.session_time || !formData.payment_plan}>
               {loading ? "Adding..." : "Add Enrollment"}
             </Button>
           </div>

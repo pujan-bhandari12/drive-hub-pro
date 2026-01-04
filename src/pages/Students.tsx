@@ -15,6 +15,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { StudentPaymentDialog } from "@/components/StudentPaymentDialog";
 import { EnrollmentDialog } from "@/components/EnrollmentDialog";
+import { PricingSettingsDialog } from "@/components/PricingSettingsDialog";
+import { usePricing } from "@/contexts/PricingContext";
+import { Settings } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,20 +46,6 @@ interface Enrollment {
   total_amount: number;
 }
 
-const PRICING = {
-  motorcycle: {
-    1: 500,
-    7: 3000,
-    15: 5500,
-    30: 10000,
-  },
-  car: {
-    1: 800,
-    7: 5000,
-    15: 9000,
-    30: 16000,
-  },
-};
 
 const capitalizeWords = (str: string) => {
   return str.replace(/\b\w/g, (char) => char.toUpperCase());
@@ -68,15 +57,18 @@ const Students = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { pricing } = usePricing();
   const [selectedStudent, setSelectedStudent] = useState<{ id: string; name: string } | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [enrollmentDialogOpen, setEnrollmentDialogOpen] = useState(false);
   const [deleteStudent, setDeleteStudent] = useState<Student | null>(null);
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     full_name: "",
     phone: "",
     course: "" as "" | "motorcycle" | "car",
+    sessionTime: "" as "" | "30min" | "1hr",
     days: "" as "" | "1" | "7" | "15" | "30",
   });
 
@@ -152,9 +144,9 @@ const Students = () => {
       return;
     }
 
-    // If course and days are selected, create enrollment
-    if (formData.course && formData.days && studentData) {
-      const price = PRICING[formData.course][parseInt(formData.days) as 1 | 7 | 15 | 30];
+    // If course, session time and days are selected, create enrollment
+    if (formData.course && formData.sessionTime && formData.days && studentData) {
+      const price = pricing[formData.course][formData.sessionTime][parseInt(formData.days) as 1 | 7 | 15 | 30];
       const { error: enrollmentError } = await supabase
         .from("enrollments")
         .insert([{
@@ -183,6 +175,7 @@ const Students = () => {
       full_name: "",
       phone: "",
       course: "",
+      sessionTime: "",
       days: "",
     });
     fetchStudents();
@@ -193,6 +186,7 @@ const Students = () => {
       full_name: "",
       phone: "",
       course: "",
+      sessionTime: "",
       days: "",
     });
   };
@@ -244,7 +238,17 @@ const Students = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold tracking-tight">Students</h1>
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold tracking-tight">Students</h1>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setSettingsDialogOpen(true)}
+            title="Pricing Settings"
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
+        </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Add Student Card */}
@@ -273,7 +277,7 @@ const Students = () => {
                 <div className="space-y-2">
                   <Select
                     value={formData.course}
-                    onValueChange={(value: "motorcycle" | "car") => setFormData({ ...formData, course: value, days: "" })}
+                    onValueChange={(value: "motorcycle" | "car") => setFormData({ ...formData, course: value, sessionTime: "", days: "" })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select Course" />
@@ -286,6 +290,23 @@ const Students = () => {
                 </div>
                 {formData.course && (
                   <div className="space-y-2">
+                    <Label>Session Duration</Label>
+                    <Select
+                      value={formData.sessionTime}
+                      onValueChange={(value: "30min" | "1hr") => setFormData({ ...formData, sessionTime: value, days: "" })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select session time" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="30min">30 Minutes</SelectItem>
+                        <SelectItem value="1hr">1 Hour</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {formData.course && formData.sessionTime && (
+                  <div className="space-y-2">
                     <Label>Duration & Price</Label>
                     <Select
                       value={formData.days}
@@ -295,10 +316,10 @@ const Students = () => {
                         <SelectValue placeholder="Select duration" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1">1 Day - NPR {PRICING[formData.course][1].toLocaleString()}</SelectItem>
-                        <SelectItem value="7">7 Days - NPR {PRICING[formData.course][7].toLocaleString()}</SelectItem>
-                        <SelectItem value="15">15 Days - NPR {PRICING[formData.course][15].toLocaleString()}</SelectItem>
-                        <SelectItem value="30">30 Days - NPR {PRICING[formData.course][30].toLocaleString()}</SelectItem>
+                        <SelectItem value="1">1 Day - NPR {pricing[formData.course][formData.sessionTime][1].toLocaleString()}</SelectItem>
+                        <SelectItem value="7">7 Days - NPR {pricing[formData.course][formData.sessionTime][7].toLocaleString()}</SelectItem>
+                        <SelectItem value="15">15 Days - NPR {pricing[formData.course][formData.sessionTime][15].toLocaleString()}</SelectItem>
+                        <SelectItem value="30">30 Days - NPR {pricing[formData.course][formData.sessionTime][30].toLocaleString()}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -476,6 +497,11 @@ const Students = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <PricingSettingsDialog
+          open={settingsDialogOpen}
+          onOpenChange={setSettingsDialogOpen}
+        />
       </div>
     </DashboardLayout>
   );
