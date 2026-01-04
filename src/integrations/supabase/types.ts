@@ -81,6 +81,7 @@ export type Database = {
           id: string
           license_type: string
           payment_plan: number
+          session_time: string | null
           start_date: string
           status: string
           student_id: string
@@ -93,6 +94,7 @@ export type Database = {
           id?: string
           license_type: string
           payment_plan: number
+          session_time?: string | null
           start_date?: string
           status?: string
           student_id: string
@@ -105,6 +107,7 @@ export type Database = {
           id?: string
           license_type?: string
           payment_plan?: number
+          session_time?: string | null
           start_date?: string
           status?: string
           student_id?: string

@@ -67,6 +67,7 @@ export const EnrollmentDialog = ({
         license_type: formData.license_type === "motorcycle" ? "bike" : "car",
         payment_plan: parseInt(formData.payment_plan),
         total_amount: price,
+        session_time: formData.session_time,
         start_date: startDate.toISOString().split("T")[0],
         end_date: endDate.toISOString().split("T")[0],
       },
