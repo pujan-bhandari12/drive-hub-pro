@@ -44,6 +44,7 @@ interface Enrollment {
   payment_plan: number;
   status: string;
   total_amount: number;
+  session_time: string | null;
 }
 
 
@@ -154,6 +155,7 @@ const Students = () => {
           license_type: formData.course === "motorcycle" ? "bike" : "car",
           payment_plan: parseInt(formData.days),
           total_amount: price,
+          session_time: formData.sessionTime,
         }]);
 
       if (enrollmentError) {
@@ -383,7 +385,7 @@ const Students = () => {
                               </div>
                               {carEnrollment && (
                                 <div className="text-sm text-muted-foreground">
-                                  Package: {carEnrollment.payment_plan} days — NPR {carEnrollment.total_amount.toLocaleString()}
+                                  {carEnrollment.session_time === '30min' ? '30 min' : '1 hr'} • {carEnrollment.payment_plan} days — NPR {carEnrollment.total_amount.toLocaleString()}
                                 </div>
                               )}
                             </div>
@@ -436,7 +438,7 @@ const Students = () => {
                               </div>
                               {bikeEnrollment && (
                                 <div className="text-sm text-muted-foreground">
-                                  Package: {bikeEnrollment.payment_plan} days — NPR {bikeEnrollment.total_amount.toLocaleString()}
+                                  {bikeEnrollment.session_time === '30min' ? '30 min' : '1 hr'} • {bikeEnrollment.payment_plan} days — NPR {bikeEnrollment.total_amount.toLocaleString()}
                                 </div>
                               )}
                             </div>
