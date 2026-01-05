@@ -59,12 +59,63 @@ const Attendance = () => {
   };
 
   const fetchStudents = async () => {
-    const { data } = await supabase
+    // Fetch students with their enrollments to filter out those with expired enrollments
+    const { data: studentsData } = await supabase
       .from("students")
       .select("id, full_name, phone")
       .eq("status", "active")
       .order("full_name");
-    setStudents(data || []);
+
+    if (!studentsData) {
+      setStudents([]);
+      return;
+    }
+
+    // Fetch all enrollments
+    const { data: enrollmentsData } = await supabase
+      .from("enrollments")
+      .select("student_id, end_date, total_amount");
+
+    // Fetch all transactions
+    const { data: transactionsData } = await supabase
+      .from("transactions")
+      .select("student_id, amount")
+      .eq("status", "completed");
+
+    // Calculate paid amounts per student
+    const paidByStudent: Record<string, number> = {};
+    transactionsData?.forEach((tx) => {
+      paidByStudent[tx.student_id] = (paidByStudent[tx.student_id] || 0) + Number(tx.amount);
+    });
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Filter students who have at least one active enrollment (not expired or not fully paid)
+    const eligibleStudentIds = new Set<string>();
+    
+    enrollmentsData?.forEach((enrollment) => {
+      const studentEnrollments = enrollmentsData.filter(e => e.student_id === enrollment.student_id);
+      const totalAmount = studentEnrollments.reduce((sum, e) => sum + e.total_amount, 0);
+      const totalPaid = paidByStudent[enrollment.student_id] || 0;
+      const remainingAmount = totalAmount - totalPaid;
+
+      let remainingDays = 1;
+      if (enrollment.end_date) {
+        const endDate = new Date(enrollment.end_date);
+        endDate.setHours(0, 0, 0, 0);
+        remainingDays = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      }
+
+      // Student is eligible if they have remaining days OR remaining amount
+      if (remainingDays > 0 || remainingAmount > 0) {
+        eligibleStudentIds.add(enrollment.student_id);
+      }
+    });
+
+    // Filter students to only those with eligible enrollments
+    const eligibleStudents = studentsData.filter(s => eligibleStudentIds.has(s.id));
+    setStudents(eligibleStudents);
   };
 
   const searchItems = students.map((s) => ({

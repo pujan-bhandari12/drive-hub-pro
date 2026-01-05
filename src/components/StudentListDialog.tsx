@@ -19,7 +19,12 @@ interface Student {
   id: string;
   full_name: string;
   phone: string;
-  enrollments: { license_type: string }[];
+  enrollments: { license_type: string; end_date: string | null; total_amount: number }[];
+}
+
+interface TransactionSum {
+  student_id: string;
+  total_paid: number;
 }
 
 export const StudentListDialog = ({
@@ -43,11 +48,47 @@ export const StudentListDialog = ({
     setLoading(true);
     const { data } = await supabase
       .from("students")
-      .select("id, full_name, phone, enrollments(license_type)")
+      .select("id, full_name, phone, enrollments(license_type, end_date, total_amount)")
       .eq("status", "active")
       .order("full_name");
 
-    setStudents(data || []);
+    // Fetch all transactions
+    const { data: transactionsData } = await supabase
+      .from("transactions")
+      .select("student_id, amount")
+      .eq("status", "completed");
+
+    // Calculate paid amounts per student
+    const paidByStudent: Record<string, number> = {};
+    transactionsData?.forEach((tx) => {
+      paidByStudent[tx.student_id] = (paidByStudent[tx.student_id] || 0) + Number(tx.amount);
+    });
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Filter students and their enrollments
+    const filteredStudents = (data || []).map(student => {
+      const totalAmount = student.enrollments?.reduce((sum, e) => sum + e.total_amount, 0) || 0;
+      const totalPaid = paidByStudent[student.id] || 0;
+      const remainingAmount = totalAmount - totalPaid;
+
+      // Filter enrollments that are still active
+      const activeEnrollments = student.enrollments?.filter(enrollment => {
+        let remainingDays = 1;
+        if (enrollment.end_date) {
+          const endDate = new Date(enrollment.end_date);
+          endDate.setHours(0, 0, 0, 0);
+          remainingDays = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        }
+        // Include if remaining days > 0 OR remaining amount > 0
+        return remainingDays > 0 || remainingAmount > 0;
+      }) || [];
+
+      return { ...student, enrollments: activeEnrollments };
+    }).filter(student => student.enrollments.length > 0);
+
+    setStudents(filteredStudents);
     setLoading(false);
   };
 
