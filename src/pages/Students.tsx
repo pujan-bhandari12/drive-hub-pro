@@ -127,27 +127,40 @@ const Students = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    // First, group all enrollments by student to calculate total amounts
+    const allEnrollmentsByStudent: Record<string, typeof enrollmentsData> = {};
+    enrollmentsData?.forEach((enrollment) => {
+      if (!allEnrollmentsByStudent[enrollment.student_id]) {
+        allEnrollmentsByStudent[enrollment.student_id] = [];
+      }
+      allEnrollmentsByStudent[enrollment.student_id].push(enrollment);
+    });
+
     // Group enrollments by student_id, filtering out completed ones
     const enrollmentsByStudent: Record<string, Enrollment[]> = {};
-    enrollmentsData?.forEach((enrollment) => {
-      const totalPaid = transactionsByStudent[enrollment.student_id] || 0;
-      const remainingAmount = enrollment.total_amount - totalPaid;
-      
-      // Check if end_date has passed
-      let remainingDays = 1; // Default to having days remaining
-      if (enrollment.end_date) {
-        const endDate = new Date(enrollment.end_date);
-        endDate.setHours(0, 0, 0, 0);
-        remainingDays = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      }
+    
+    Object.entries(allEnrollmentsByStudent).forEach(([studentId, studentEnrollments]) => {
+      const totalPaid = transactionsByStudent[studentId] || 0;
+      const totalEnrollmentAmount = studentEnrollments.reduce((sum, e) => sum + e.total_amount, 0);
+      const remainingAmount = totalEnrollmentAmount - totalPaid;
 
-      // Only include if remaining days > 0 OR remaining amount > 0
-      if (remainingDays > 0 || remainingAmount > 0) {
-        if (!enrollmentsByStudent[enrollment.student_id]) {
-          enrollmentsByStudent[enrollment.student_id] = [];
+      studentEnrollments.forEach((enrollment) => {
+        // Check if end_date has passed
+        let remainingDays = 1; // Default to having days remaining
+        if (enrollment.end_date) {
+          const endDate = new Date(enrollment.end_date);
+          endDate.setHours(0, 0, 0, 0);
+          remainingDays = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
         }
-        enrollmentsByStudent[enrollment.student_id].push(enrollment);
-      }
+
+        // Only include if remaining days > 0 OR remaining amount > 0
+        if (remainingDays > 0 || remainingAmount > 0) {
+          if (!enrollmentsByStudent[studentId]) {
+            enrollmentsByStudent[studentId] = [];
+          }
+          enrollmentsByStudent[studentId].push(enrollment);
+        }
+      });
     });
 
     setEnrollments(enrollmentsByStudent);
