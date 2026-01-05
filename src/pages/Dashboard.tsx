@@ -64,10 +64,6 @@ const Dashboard = () => {
 
   const fetchStats = async () => {
     try {
-      const { count: totalStudents } = await supabase
-        .from("students")
-        .select("*", { count: "exact", head: true });
-
       const today = new Date().toISOString().split("T")[0];
       const { count: todayAttendance } = await supabase
         .from("attendance")
@@ -77,7 +73,50 @@ const Dashboard = () => {
       // Fetch enrollments with student info to categorize payments
       const { data: enrollments } = await supabase
         .from("enrollments")
-        .select("student_id, license_type");
+        .select("student_id, license_type, end_date, total_amount");
+
+      // Fetch all completed transactions
+      const { data: transactions } = await supabase
+        .from("transactions")
+        .select("amount, student_id, transaction_date, description")
+        .eq("status", "completed");
+
+      // Calculate paid amounts per student
+      const paidByStudent: Record<string, number> = {};
+      transactions?.forEach((t) => {
+        const amount = parseFloat(t.amount.toString());
+        if (!t.description?.startsWith("Discount:")) {
+          paidByStudent[t.student_id] = (paidByStudent[t.student_id] || 0) + amount;
+        }
+      });
+
+      // Calculate total enrollment amount per student
+      const totalAmountByStudent: Record<string, number> = {};
+      enrollments?.forEach((e) => {
+        totalAmountByStudent[e.student_id] = (totalAmountByStudent[e.student_id] || 0) + e.total_amount;
+      });
+
+      // Count active students (those with remaining days > 0 OR remaining amount > 0)
+      const todayDate = new Date();
+      todayDate.setHours(0, 0, 0, 0);
+      
+      const activeStudentIds = new Set<string>();
+      enrollments?.forEach((e) => {
+        const totalAmount = totalAmountByStudent[e.student_id] || 0;
+        const totalPaid = paidByStudent[e.student_id] || 0;
+        const remainingAmount = totalAmount - totalPaid;
+
+        let remainingDays = 1;
+        if (e.end_date) {
+          const endDate = new Date(e.end_date);
+          endDate.setHours(0, 0, 0, 0);
+          remainingDays = Math.ceil((endDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24));
+        }
+
+        if (remainingDays > 0 || remainingAmount > 0) {
+          activeStudentIds.add(e.student_id);
+        }
+      });
 
       // Create a map of student to their enrollment types
       const studentEnrollments: Record<string, string[]> = {};
@@ -87,12 +126,6 @@ const Dashboard = () => {
         }
         studentEnrollments[e.student_id].push(e.license_type);
       });
-
-      // Fetch all completed transactions
-      const { data: transactions } = await supabase
-        .from("transactions")
-        .select("amount, student_id, transaction_date, description")
-        .eq("status", "completed");
 
       // Get first day of current month
       const now = new Date();
@@ -141,7 +174,7 @@ const Dashboard = () => {
       });
 
       setStats({
-        totalStudents: totalStudents || 0,
+        totalStudents: activeStudentIds.size,
         todayAttendance: todayAttendance || 0,
         carPayments,
         bikePayments,

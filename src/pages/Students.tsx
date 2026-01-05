@@ -372,14 +372,16 @@ const Students = () => {
                     </Select>
                   </div>
                 )}
-                <div className="flex gap-2">
-                  <Button type="submit" disabled={loading} className="flex-1">
-                    {loading ? "Saving..." : "Save"}
-                  </Button>
-                  <Button type="button" variant="outline" onClick={handleClearForm}>
-                    Clear
-                  </Button>
-                </div>
+                {formData.full_name && formData.phone && formData.course && formData.sessionTime && formData.days && (
+                  <div className="flex gap-2">
+                    <Button type="submit" disabled={loading} className="flex-1">
+                      {loading ? "Saving..." : "Save"}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={handleClearForm}>
+                      Clear
+                    </Button>
+                  </div>
+                )}
               </form>
             </CardContent>
           </Card>
