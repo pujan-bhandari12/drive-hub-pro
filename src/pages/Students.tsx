@@ -45,6 +45,8 @@ interface Enrollment {
   status: string;
   total_amount: number;
   session_time: string | null;
+  end_date: string | null;
+  student_id: string;
 }
 
 
@@ -55,6 +57,7 @@ const capitalizeWords = (str: string) => {
 const Students = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [enrollments, setEnrollments] = useState<Record<string, Enrollment[]>>({});
+  const [transactions, setTransactions] = useState<Record<string, number>>({});
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -108,13 +111,43 @@ const Students = () => {
       return;
     }
 
-    // Group enrollments by student_id
+    // Fetch all transactions to calculate paid amounts
+    const { data: transactionsData } = await supabase
+      .from("transactions")
+      .select("student_id, amount")
+      .eq("status", "completed");
+
+    // Group transactions by student_id and sum amounts
+    const transactionsByStudent: Record<string, number> = {};
+    transactionsData?.forEach((tx) => {
+      transactionsByStudent[tx.student_id] = (transactionsByStudent[tx.student_id] || 0) + Number(tx.amount);
+    });
+    setTransactions(transactionsByStudent);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Group enrollments by student_id, filtering out completed ones
     const enrollmentsByStudent: Record<string, Enrollment[]> = {};
     enrollmentsData?.forEach((enrollment) => {
-      if (!enrollmentsByStudent[enrollment.student_id]) {
-        enrollmentsByStudent[enrollment.student_id] = [];
+      const totalPaid = transactionsByStudent[enrollment.student_id] || 0;
+      const remainingAmount = enrollment.total_amount - totalPaid;
+      
+      // Check if end_date has passed
+      let remainingDays = 1; // Default to having days remaining
+      if (enrollment.end_date) {
+        const endDate = new Date(enrollment.end_date);
+        endDate.setHours(0, 0, 0, 0);
+        remainingDays = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       }
-      enrollmentsByStudent[enrollment.student_id].push(enrollment);
+
+      // Only include if remaining days > 0 OR remaining amount > 0
+      if (remainingDays > 0 || remainingAmount > 0) {
+        if (!enrollmentsByStudent[enrollment.student_id]) {
+          enrollmentsByStudent[enrollment.student_id] = [];
+        }
+        enrollmentsByStudent[enrollment.student_id].push(enrollment);
+      }
     });
 
     setEnrollments(enrollmentsByStudent);
